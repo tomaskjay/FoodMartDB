@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Scanner;
 
+//product submenu
 public class ProductSub {
     public static void manageProducts(Scanner scanner) {
         boolean back = false;

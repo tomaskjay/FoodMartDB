@@ -1,6 +1,8 @@
 package main;
 import java.util.Scanner;
 
+//main menu that everybody sees first, each option is a sub menu
+//people have to type the number, not the actual words
 public class App {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
