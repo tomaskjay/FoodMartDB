@@ -6,7 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Scanner;
 
-public class ProductManager {
+public class ProductSub {
     public static void manageProducts(Scanner scanner) {
         boolean back = false;
 
@@ -29,10 +29,10 @@ public class ProductManager {
                     addNewProduct(scanner);
                     break;
                 case 3:
-                    updateProduct(scanner);
+                    //updateProduct(scanner);
                     break;
                 case 4:
-                    deleteProduct(scanner);
+                    //deleteProduct(scanner);
                     break;
                 case 5:
                     back = true;

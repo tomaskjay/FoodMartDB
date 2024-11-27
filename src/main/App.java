@@ -9,13 +9,13 @@ public class App {
         while (!exit) {
             // Display Main Menu
             System.out.println("\n=== Main Menu ===");
-            System.out.println("    1. Orders and Sales");
-            System.out.println("    2. Products");
-            System.out.println("    3. Customers");
-            System.out.println("    4. Employees");
-            System.out.println("    5. Suppliers");
-            System.out.println("    6. Inventory");
-            System.out.println("    7. Exit");
+            System.out.println("1. Orders and Sales");
+            System.out.println("2. Products");
+            System.out.println("3. Customers");
+            System.out.println("4. Employees");
+            System.out.println("5. Suppliers");
+            System.out.println("6. Inventory");
+            System.out.println("7. Exit");
             System.out.print(" Enter choice: ");
 
             // Get user's choice
@@ -24,22 +24,22 @@ public class App {
             // Handle user's choice
             switch (choice) {
                 case 1:
-                    OrderSalesManager.manageOrdersAndSales(scanner);
+                    //OrderSalesSub.manageOrdersAndSales(scanner);
                     break;
                 case 2:
-                    ProductManager.manageProducts(scanner);
+                    ProductSub.manageProducts(scanner);
                     break;
                 case 3:
-                    CustomerManager.manageCustomers(scanner);
+                    //CustomerSub.manageCustomers(scanner);
                     break;
                 case 4:
-                    EmployeeManager.manageEmployees(scanner);
+                    //EmployeeSub.manageEmployees(scanner);
                     break;
                 case 5:
-                    SupplierManager.manageSuppliers(scanner);
+                    //SupplierSub.manageSuppliers(scanner);
                     break;
                 case 6:
-                    InventoryManager.manageInventory(scanner);
+                    //InventorySub.manageInventory(scanner);
                     break;
                 case 7:
                     exit = true;
@@ -52,3 +52,4 @@ public class App {
 
         scanner.close();
     }
+}
