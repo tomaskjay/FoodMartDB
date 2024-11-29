@@ -104,9 +104,75 @@ CREATE INDEX idx_sales_sale_quantity ON Sales(sale_quantity);
 CREATE INDEX idx_sales_sale_price ON Sales(sale_price);
 CREATE INDEX idx_sales_sale_date ON Sales(sale_date);
 
-/*
+
 --STORED PROCEDURES--
 
+--basic operations--
+
+-- Create Stored Procedure to Get All Products
+CREATE PROCEDURE GetAllProducts
+AS
+BEGIN
+    SELECT * FROM Products;
+END;
+GO
+
+-- Create Stored Procedure to Add a New Product
+CREATE PROCEDURE AddProduct
+    @Name NVARCHAR(100),
+    @SectionID INT,
+    @ShelfLife INT
+AS
+BEGIN
+    INSERT INTO Products (name, section_id, shelf_life)
+    VALUES (@Name, @SectionID, @ShelfLife);
+END;
+GO
+
+-- Create Stored Procedure to Update a Product
+CREATE PROCEDURE UpdateProduct
+    @ProductID INT,
+    @Name NVARCHAR(100),
+    @SectionID INT,
+    @ShelfLife INT
+AS
+BEGIN
+    UPDATE Products
+    SET name = @Name, section_id = @SectionID, shelf_life = @ShelfLife
+    WHERE product_id = @ProductID;
+END;
+GO
+
+-- Create Stored Procedure to Delete a Product
+CREATE PROCEDURE DeleteProduct
+    @ProductID INT
+AS
+BEGIN
+    DELETE FROM Products
+    WHERE product_id = @ProductID;
+END;
+GO
+
+-- Create Stored Procedure to Get Product By ID
+CREATE PROCEDURE GetProductByID
+    @ProductID INT
+AS
+BEGIN
+    SELECT * FROM Products
+    WHERE product_id = @ProductID;
+END;
+GO
+
+-- Ensure Necessary Permissions for Stored Procedures
+GRANT EXECUTE ON GetAllProducts TO PUBLIC;
+GRANT EXECUTE ON AddProduct TO PUBLIC;
+GRANT EXECUTE ON UpdateProduct TO PUBLIC;
+GRANT EXECUTE ON DeleteProduct TO PUBLIC;
+GRANT EXECUTE ON GetProductByID TO PUBLIC;
+GO
+
+
+/*
 --for use case #1--
 
 CREATE PROCEDURE sp_add_customer

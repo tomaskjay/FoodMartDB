@@ -29,7 +29,7 @@ public class App {
                     //OrderAndSaleSub.manageOrdersandSales(scanner);
                     break;
                 case 2:
-                    //ProductSub.manageProducts(scanner);
+                    ProductSub.manageProducts(scanner);
                     break;
                 case 3:
                     //CustomerSub.manageCustomers(scanner);
