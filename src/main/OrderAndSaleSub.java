@@ -1,156 +1,226 @@
 package main;
 
-import java.sql.CallableStatement;
-import java.sql.Connection;
-import java.sql.Date;
-import java.sql.SQLException;
-import java.sql.Types;
+import config.SQLConnection;
+import utils.DatabaseHelper;
+
+import java.sql.*;
 import java.util.Scanner;
 
-import config.SQLConnection;
-
 public class OrderAndSaleSub {
-    public static void manageOrdersandSales(Scanner scanner) {
+
+    public static void manageOrdersAndSales(Scanner scanner) {
         boolean back = false;
 
         while (!back) {
             System.out.println("\n=== Manage Orders and Sales ===");
-            System.out.println("1. Make an Order");
-            System.out.println("2. Buy a Product");
-            System.out.println("3. Return a Product");
-            System.out.println("4. Back to Main Menu");
+            System.out.println("1. Sales");
+            System.out.println("2. Orders");
+            System.out.println("3. Back to Main Menu");
             System.out.print("Enter your choice: ");
 
-            int choice = scanner.nextInt();
-
-            switch (choice) {
-                case 1:
-                    // makeOrder();
-                    break;
-                case 2:
-                    addSale(scanner);
-                    break;
-                case 3:
-                    // updateProduct(scanner);
-                    break;
-                case 4:
-                    back = true;
-                    break;
-                default:
-                    System.out.println("Invalid choice. Please try again.");
+            if (scanner.hasNextInt()) {
+                int choice = scanner.nextInt();
+                switch (choice) {
+                    case 1:
+                        manageSales(scanner);
+                        break;
+                    case 2:
+                        manageOrders(scanner);
+                        break;
+                    case 3:
+                        back = true;
+                        break;
+                    default:
+                        System.out.println("Invalid choice. Please try again.");
+                }
+            } else {
+                System.out.println("Invalid input. Please enter a number.");
+                scanner.next(); // Consume invalid input
             }
         }
     }
 
-    private static void addSale(Scanner scanner) {
-        try (Connection conn = SQLConnection.getConnection()) {
-            // Step 1: Ask if the customer is an existing customer
-            System.out.print("Have you shopped here before? (yes/no): ");
-            scanner.nextLine(); // Consume leftover newline
-            String hasShoppedBefore = scanner.nextLine().trim().toLowerCase();
+    private static void manageSales(Scanner scanner) {
+        boolean back = false;
 
-            int customerId;
-            if (hasShoppedBefore.equals("yes")) {
-                // Step 2: Get customer ID
-                System.out.print("Please enter your customer ID: ");
-                customerId = scanner.nextInt();
-                scanner.nextLine(); // Consume leftover newline
+        while (!back) {
+            System.out.println("\n=== Manage Sales ===");
+            System.out.println("1. View All Sales");
+            System.out.println("2. Make a Sale (Not Implemented)");
+            System.out.println("3. Update a Sale");
+            System.out.println("4. Delete a Sale");
+            System.out.println("5. Back to Previous Menu");
+            System.out.print("Enter your choice: ");
+
+            if (scanner.hasNextInt()) {
+                int choice = scanner.nextInt();
+                switch (choice) {
+                    case 1:
+                        viewAllSales();
+                        break;
+                    case 2:
+                        System.out.println("Feature not implemented yet.");
+                        break;
+                    case 3:
+                        updateSale(scanner);
+                        break;
+                    case 4:
+                        deleteSale(scanner);
+                        break;
+                    case 5:
+                        back = true;
+                        break;
+                    default:
+                        System.out.println("Invalid choice. Please try again.");
+                }
             } else {
-                // Step 3: Add a new contact
-                System.out.println("Let's create a new contact for you.");
-                System.out.print("Enter your email: ");
-                String email = scanner.nextLine();
-                System.out.print("Enter your phone number: ");
-                String phone = scanner.nextLine();
-                System.out.print("Enter your street address: ");
-                String street = scanner.nextLine();
-                System.out.print("Enter your city: ");
-                String city = scanner.nextLine();
-                System.out.print("Enter your state (2 letters): ");
-                String state = scanner.nextLine();
-                System.out.print("Enter your zip code: ");
-                String zipCode = scanner.nextLine();
-
-                int contactId = addContact(conn, email, phone, street, city, state, zipCode);
-
-                // Step 4: Add a new customer
-                System.out.println("Now let's create a customer profile for you.");
-                System.out.print("Enter your first name: ");
-                String firstName = scanner.nextLine();
-                System.out.print("Enter your last name: ");
-                String lastName = scanner.nextLine();
-                System.out.print("Enter your age: ");
-                int age = scanner.nextInt();
-                scanner.nextLine(); // Consume leftover newline
-
-                customerId = addCustomer(conn, contactId, firstName, lastName, age);
+                System.out.println("Invalid input. Please enter a number.");
+                scanner.next(); // Consume invalid input
             }
+        }
+    }
 
-            // Step 5: Process the sale
-            System.out.println("Let's process your sale.");
-            System.out.print("Enter inventory ID: ");
-            int inventoryId = scanner.nextInt();
-            System.out.print("Enter sale quantity: ");
-            int saleQuantity = scanner.nextInt();
-            System.out.print("Enter sale date (YYYY-MM-DD): ");
-            scanner.nextLine(); // Consume leftover newline
-            String saleDate = scanner.nextLine();
-            System.out.print("Enter sale price: ");
-            double salePrice = scanner.nextDouble();
+    private static void manageOrders(Scanner scanner) {
+        boolean back = false;
 
-            processSale(conn, customerId, inventoryId, saleQuantity, saleDate, salePrice);
+        while (!back) {
+            System.out.println("\n=== Manage Orders ===");
+            System.out.println("1. View All Orders");
+            System.out.println("2. Make an Order (Not Implemented)");
+            System.out.println("3. Update an Order");
+            System.out.println("4. Delete an Order");
+            System.out.println("5. Back to Previous Menu");
+            System.out.print("Enter your choice: ");
+
+            if (scanner.hasNextInt()) {
+                int choice = scanner.nextInt();
+                switch (choice) {
+                    case 1:
+                        viewAllOrders();
+                        break;
+                    case 2:
+                        System.out.println("Feature not implemented yet.");
+                        break;
+                    case 3:
+                        updateOrder(scanner);
+                        break;
+                    case 4:
+                        deleteOrder(scanner);
+                        break;
+                    case 5:
+                        back = true;
+                        break;
+                    default:
+                        System.out.println("Invalid choice. Please try again.");
+                }
+            } else {
+                System.out.println("Invalid input. Please enter a number.");
+                scanner.next(); // Consume invalid input
+            }
+        }
+    }
+
+    private static void viewAllSales() {
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall("{CALL GetAllSales}", 
+                 ResultSet.TYPE_SCROLL_INSENSITIVE, 
+                 ResultSet.CONCUR_READ_ONLY)) {
+
+            ResultSet rs = stmt.executeQuery();
+            System.out.println("\n=== Sales List ===");
+            DatabaseHelper.printResultSet(rs);
 
         } catch (SQLException e) {
-            System.out.println("An error occurred while processing the sale: " + e.getMessage());
-            e.printStackTrace();
+            System.out.println("Error fetching sales: " + e.getMessage());
         }
     }
 
-    private static int addContact(Connection conn, String email, String phone, String street, String city, String state, String zipCode) throws SQLException {
-        String sql = "{CALL sp_add_contact(?, ?, ?, ?, ?, ?, ?)}";
-        try (CallableStatement stmt = conn.prepareCall(sql)) {
-            stmt.setString(1, email);
-            stmt.setString(2, phone);
-            stmt.setString(3, street);
-            stmt.setString(4, city);
-            stmt.setString(5, state);
-            stmt.setString(6, zipCode);
-            stmt.registerOutParameter(7, Types.INTEGER); // Output parameter for new_contact_id
+    private static void updateSale(Scanner scanner) {
+        System.out.print("Enter Sale ID to update: ");
+        int saleID = scanner.nextInt();
 
-            stmt.execute();
-            int contactId = stmt.getInt(7);
-            System.out.println("New contact created with ID: " + contactId);
-            return contactId;
+        System.out.print("Enter new quantity: ");
+        int quantity = scanner.nextInt();
+
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall("{CALL UpdateSale(?, ?)}")) {
+
+            stmt.setInt(1, saleID);
+            stmt.setInt(2, quantity);
+
+            stmt.executeUpdate();
+            System.out.println("Sale updated successfully!");
+
+        } catch (SQLException e) {
+            System.out.println("Error updating sale: " + e.getMessage());
         }
     }
 
-    private static int addCustomer(Connection conn, int contactId, String firstName, String lastName, int age) throws SQLException {
-        String sql = "{CALL sp_add_customer(?, ?, ?, ?, ?)}"; // Adjusted to include output parameter
-        try (CallableStatement stmt = conn.prepareCall(sql)) {
-            stmt.setInt(1, contactId);
-            stmt.setString(2, firstName);
-            stmt.setString(3, lastName);
-            stmt.setInt(4, age);
-            stmt.registerOutParameter(5, Types.INTEGER); // Output parameter for new_customer_id
+    private static void deleteSale(Scanner scanner) {
+        System.out.print("Enter Sale ID to delete: ");
+        int saleID = scanner.nextInt();
 
-            stmt.execute();
-            int customerId = stmt.getInt(5); // Retrieve the generated customer ID
-            System.out.println("Customer added successfully with ID: " + customerId);
-            return customerId;
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall("{CALL DeleteSale(?)}")) {
+
+            stmt.setInt(1, saleID);
+            stmt.executeUpdate();
+            System.out.println("Sale deleted successfully!");
+
+        } catch (SQLException e) {
+            System.out.println("Error deleting sale: " + e.getMessage());
         }
     }
 
-    private static void processSale(Connection conn, int customerId, int inventoryId, int saleQuantity, String saleDate, double salePrice) throws SQLException {
-        String sql = "{CALL sp_process_sale(?, ?, ?, ?, ?)}";
-        try (CallableStatement stmt = conn.prepareCall(sql)) {
-            stmt.setInt(1, customerId);
-            stmt.setInt(2, inventoryId);
-            stmt.setInt(3, saleQuantity);
-            stmt.setDate(4, Date.valueOf(saleDate)); // Convert string to SQL date
-            stmt.setDouble(5, salePrice);
+    private static void viewAllOrders() {
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall("{CALL GetAllOrders}", 
+                 ResultSet.TYPE_SCROLL_INSENSITIVE, 
+                 ResultSet.CONCUR_READ_ONLY)) {
 
-            stmt.execute();
-            System.out.println("Sale processed successfully.");
+            ResultSet rs = stmt.executeQuery();
+            System.out.println("\n=== Orders List ===");
+            DatabaseHelper.printResultSet(rs);
+
+        } catch (SQLException e) {
+            System.out.println("Error fetching orders: " + e.getMessage());
+        }
+    }
+
+    private static void updateOrder(Scanner scanner) {
+        System.out.print("Enter Order ID to update: ");
+        int orderID = scanner.nextInt();
+
+        System.out.print("Enter new quantity: ");
+        int quantity = scanner.nextInt();
+
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall("{CALL UpdateOrder(?, ?)}")) {
+
+            stmt.setInt(1, orderID);
+            stmt.setInt(2, quantity);
+
+            stmt.executeUpdate();
+            System.out.println("Order updated successfully!");
+
+        } catch (SQLException e) {
+            System.out.println("Error updating order: " + e.getMessage());
+        }
+    }
+
+    private static void deleteOrder(Scanner scanner) {
+        System.out.print("Enter Order ID to delete: ");
+        int orderID = scanner.nextInt();
+
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall("{CALL DeleteOrder(?)}")) {
+
+            stmt.setInt(1, orderID);
+            stmt.executeUpdate();
+            System.out.println("Order deleted successfully!");
+
+        } catch (SQLException e) {
+            System.out.println("Error deleting order: " + e.getMessage());
         }
     }
 }
