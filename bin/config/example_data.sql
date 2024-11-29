@@ -1,4 +1,4 @@
---create statements and indexes--
+--example data for every table--
 
 INSERT INTO Sections (name) VALUES
 ('Beverages'),

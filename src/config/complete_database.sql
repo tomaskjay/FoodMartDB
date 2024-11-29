@@ -1,4 +1,4 @@
---example data to fill in every table--
+--CREATE STATEMENTS--
 
 CREATE TABLE Sections (
     section_id INT PRIMARY KEY IDENTITY(1,1),
@@ -94,6 +94,8 @@ CREATE TABLE Returns (
     FOREIGN KEY (sale_id) REFERENCES Sales(sale_id)
 );
 
+--INDEXES--
+
 CREATE INDEX idx_products_shelf_life ON Products(shelf_life);
 CREATE INDEX idx_bulkorders_total_quantity ON BulkOrders(total_quantity);
 CREATE INDEX idx_bulkorders_order_date ON BulkOrders(order_date);
@@ -101,3 +103,93 @@ CREATE INDEX idx_inventory_quantity ON Inventory(quantity);
 CREATE INDEX idx_sales_sale_quantity ON Sales(sale_quantity);
 CREATE INDEX idx_sales_sale_price ON Sales(sale_price);
 CREATE INDEX idx_sales_sale_date ON Sales(sale_date);
+
+/*
+--STORED PROCEDURES--
+
+--for use case #1--
+
+CREATE PROCEDURE sp_add_customer
+    @contact_id INT,
+    @fname VARCHAR(50),
+    @lname VARCHAR(50),
+    @age INT = NULL -- Optional parameter, default is NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate age if provided
+    IF @age IS NOT NULL AND @age <= 0
+    BEGIN
+        PRINT 'Invalid age. Age must be a positive number.';
+        RETURN;
+    END
+
+    INSERT INTO Customer (fname, lname, contact_id, age)
+    VALUES (@fname, @lname, @contact_id, @age);
+
+    PRINT 'Customer added successfully.';
+END;
+
+CREATE PROCEDURE sp_add_contact
+    @email VARCHAR(100),
+    @phone VARCHAR(15),
+    @street VARCHAR(100),
+    @city VARCHAR(50),
+    @state CHAR(2),
+    @zip_code VARCHAR(10),
+    @new_contact_id INT OUTPUT -- Optional output parameter to return the new contact ID
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validate required fields
+    IF @email IS NULL OR LEN(@email) = 0
+    BEGIN
+        PRINT 'Email is required.';
+        RETURN;
+    END
+
+    IF @phone IS NULL OR LEN(@phone) = 0
+    BEGIN
+        PRINT 'Phone is required.';
+        RETURN;
+    END
+
+    IF @street IS NULL OR LEN(@street) = 0
+    BEGIN
+        PRINT 'Street address is required.';
+        RETURN;
+    END
+
+    IF @city IS NULL OR LEN(@city) = 0
+    BEGIN
+        PRINT 'City is required.';
+        RETURN;
+    END
+
+    IF @state IS NULL OR LEN(@state) != 2
+    BEGIN
+        PRINT 'State must be a valid two-character code.';
+        RETURN;
+    END
+
+    IF @zip_code IS NULL OR LEN(@zip_code) = 0
+    BEGIN
+        PRINT 'Zip code is required.';
+        RETURN;
+    END
+
+    -- Insert new contact into the Contact table
+    INSERT INTO Contact (email, phone, street, city, state, zip_code)
+    VALUES (@email, @phone, @street, @city, @state, @zip_code);
+
+    -- Retrieve the ID of the newly inserted contact
+    SET @new_contact_id = SCOPE_IDENTITY();
+
+    PRINT 'Contact added successfully.';
+END;
+
+--for use case #2--
+
+*/
