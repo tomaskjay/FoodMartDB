@@ -10,7 +10,6 @@ public class OrderAndSaleSub {
 
     public static void manageOrdersAndSales(Scanner scanner) {
         boolean back = false;
-
         while (!back) {
             System.out.println("\n=== Manage Orders and Sales ===");
             System.out.println("1. Sales");
