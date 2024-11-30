@@ -6,8 +6,7 @@ import utils.DatabaseHelper;
 import java.sql.*;
 import java.util.Scanner;
 
-public class ProductSub {
-
+public class ProductsSub {
     public static void manageProducts(Scanner scanner) {
         boolean back = false;
 
@@ -15,8 +14,8 @@ public class ProductSub {
             System.out.println("\n=== Manage Products ===");
             System.out.println("1. View All Products");
             System.out.println("2. Add New Product");
-            System.out.println("3. Update Product");
-            System.out.println("4. Delete Product");
+            System.out.println("3. Edit a Product");
+            System.out.println("4. Remove a Product");
             System.out.println("5. Back to Main Menu");
             System.out.print("Enter your choice: ");
 
@@ -63,30 +62,51 @@ public class ProductSub {
         }
     }
 
-    private static void addNewProduct(Scanner scanner) {
+    public static int addNewProduct(Scanner scanner) {
+        System.out.println("=== Add New Product ===");
+
         System.out.print("Enter product name: ");
-        scanner.nextLine(); // Consume newline
-        String name = scanner.nextLine();
-
+        String productName = scanner.nextLine().trim(); // Use nextLine directly and trim spaces
+    
         System.out.print("Enter section ID: ");
+        while (!scanner.hasNextInt()) { // Ensure valid integer input
+            System.out.println("Invalid input. Please enter a valid integer for section ID.");
+            scanner.next(); // Consume invalid input
+        }
         int sectionID = scanner.nextInt();
-
+        scanner.nextLine(); // Consume leftover newline
+    
         System.out.print("Enter shelf life (in days): ");
+        while (!scanner.hasNextInt()) { // Ensure valid integer input
+            System.out.println("Invalid input. Please enter a valid integer for shelf life.");
+            scanner.next(); // Consume invalid input
+        }
         int shelfLife = scanner.nextInt();
-
+        scanner.nextLine(); // Consume leftover newline
+    
+        String insertQuery = "INSERT INTO Products (name, section_id, shelf_life) OUTPUT INSERTED.product_id VALUES (?, ?, ?)";
+    
         try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall("{CALL AddProduct(?, ?, ?)}")) {
-
-            stmt.setString(1, name);
+             PreparedStatement stmt = conn.prepareStatement(insertQuery)) {
+    
+            // Set parameters for the PreparedStatement
+            stmt.setString(1, productName);
             stmt.setInt(2, sectionID);
             stmt.setInt(3, shelfLife);
-
-            stmt.executeUpdate();
-            System.out.println("Product added successfully!");
-
+    
+            // Execute the query and retrieve the generated product_id
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    int productID = rs.getInt(1);
+                    System.out.println("Product added successfully! Product ID: " + productID);
+                    return productID;
+                }
+            }
         } catch (SQLException e) {
             System.out.println("Error adding product: " + e.getMessage());
         }
+    
+        return -1; // Return -1 to indicate failure
     }
 
     private static void updateProduct(Scanner scanner) {

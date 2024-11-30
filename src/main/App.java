@@ -10,8 +10,8 @@ public class App {
 
         while (!exit) {
             // Display Main Menu
-            System.out.println("=== Main Menu ===");
-            System.out.println("1. Orders and Sales");
+            System.out.println("\n=== Main Menu ===");
+            System.out.println("1. Transactions");
             System.out.println("2. Products");
             System.out.println("3. Customers");
             System.out.println("4. Employees");
@@ -26,10 +26,10 @@ public class App {
             // Handle user's choice
             switch (choice) {
                 case 1:
-                    //OrderAndSaleSub.manageOrdersandSales(scanner);
+                    TransactionsSub.manageTransactions(scanner);
                     break;
                 case 2:
-                    ProductSub.manageProducts(scanner);
+                    ProductsSub.manageProducts(scanner);
                     break;
                 case 3:
                     //CustomerSub.manageCustomers(scanner);

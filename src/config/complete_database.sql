@@ -171,6 +171,170 @@ GRANT EXECUTE ON DeleteProduct TO PUBLIC;
 GRANT EXECUTE ON GetProductByID TO PUBLIC;
 GO
 
+-- For orders
+CREATE PROCEDURE MakeOrder
+    @ProductID INT,
+    @SupplierID INT,
+    @TotalQuantity INT,
+    @OrderDate DATE
+AS
+BEGIN
+    -- Insert into BulkOrders
+    INSERT INTO BulkOrders (product_id, supplier_id, total_quantity, order_date)
+    VALUES (@ProductID, @SupplierID, @TotalQuantity, @OrderDate);
+
+    -- Get the BulkOrderID of the newly inserted order
+    DECLARE @BulkOrderID INT = SCOPE_IDENTITY();
+
+    -- Insert into Inventory with location as 'storage'
+    INSERT INTO Inventory (bulk_order_id, location, quantity)
+    VALUES (@BulkOrderID, 'storage', @TotalQuantity);
+END;
+GO
+
+--for sales
+
+CREATE PROCEDURE GetAllSales AS BEGIN
+    SELECT * FROM Sales;
+END;
+GO
+
+CREATE PROCEDURE UpdateSale
+    @SaleID INT,
+    @NewQuantity INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CurrentQuantity INT;
+    DECLARE @InventoryID INT;
+    DECLARE @InventoryQuantity INT;
+    DECLARE @QuantityChange INT;
+
+    -- Retrieve the current sale and inventory details
+    SELECT @CurrentQuantity = sale_quantity, @InventoryID = inventory_id
+    FROM Sales
+    WHERE sale_id = @SaleID;
+
+    IF @CurrentQuantity IS NULL
+    BEGIN
+        PRINT 'Sale ID not found.';
+        RETURN;
+    END
+
+    SELECT @InventoryQuantity = quantity
+    FROM Inventory
+    WHERE inventory_id = @InventoryID;
+
+    IF @InventoryQuantity IS NULL
+    BEGIN
+        PRINT 'Inventory ID not found.';
+        RETURN;
+    END
+
+    -- Calculate the quantity change
+    SET @QuantityChange = @NewQuantity - @CurrentQuantity;
+
+    -- Handle deletion if new quantity is zero
+    IF @NewQuantity = 0
+    BEGIN
+        DELETE FROM Sales WHERE sale_id = @SaleID;
+
+        -- Increment inventory by the entire sale quantity
+        UPDATE Inventory
+        SET quantity = quantity + @CurrentQuantity
+        WHERE inventory_id = @InventoryID;
+
+        PRINT 'Sale deleted and inventory updated successfully.';
+        RETURN;
+    END
+
+    -- Handle increase in sale quantity
+    IF @QuantityChange > 0
+    BEGIN
+        IF @InventoryQuantity < @QuantityChange
+        BEGIN
+            PRINT 'Error: Not enough stock in inventory to increase the sale quantity.';
+            RETURN;
+        END
+
+        -- Decrease inventory
+        UPDATE Inventory
+        SET quantity = quantity - @QuantityChange
+        WHERE inventory_id = @InventoryID;
+    END
+
+    -- Handle decrease in sale quantity
+    IF @QuantityChange < 0
+    BEGIN
+        -- Increase inventory
+        UPDATE Inventory
+        SET quantity = quantity + ABS(@QuantityChange)
+        WHERE inventory_id = @InventoryID;
+    END
+
+    -- Update the sale quantity
+    UPDATE Sales
+    SET sale_quantity = @NewQuantity
+    WHERE sale_id = @SaleID;
+
+    PRINT 'Sale and inventory updated successfully.';
+END;
+GO
+
+CREATE PROCEDURE DeleteSale
+    @SaleID INT
+AS BEGIN
+    DELETE FROM Sales WHERE sale_id = @SaleID;
+END;
+GO
+
+--for orders
+
+CREATE PROCEDURE GetAllOrders AS BEGIN
+    SELECT * FROM BulkOrders;
+END;
+GO
+
+CREATE PROCEDURE UpdateOrder
+    @OrderID INT,
+    @Quantity INT
+AS BEGIN
+    UPDATE BulkOrders SET total_quantity = @Quantity WHERE bulk_order_id = @OrderID;
+END;
+GO
+
+CREATE PROCEDURE DeleteOrderWithConflicts
+    @OrderID INT
+AS
+BEGIN
+    -- Fetch conflicting tuples from Inventory
+    SELECT 
+        inventory_id, bulk_order_id, location, quantity 
+    FROM Inventory
+    WHERE bulk_order_id = @OrderID;
+
+    -- Fetch conflicting tuples from Sales
+    SELECT 
+        sale_id, inventory_id, customer_id, sale_quantity, sale_date, sale_price 
+    FROM Sales
+    WHERE inventory_id IN (SELECT inventory_id FROM Inventory WHERE bulk_order_id = @OrderID);
+
+    -- Delete related rows from Sales
+    DELETE FROM Sales
+    WHERE inventory_id IN (SELECT inventory_id FROM Inventory WHERE bulk_order_id = @OrderID);
+
+    -- Delete related rows from Inventory
+    DELETE FROM Inventory
+    WHERE bulk_order_id = @OrderID;
+
+    -- Finally, delete the order from BulkOrders
+    DELETE FROM BulkOrders WHERE bulk_order_id = @OrderID;
+END;
+GO
+
+
+
 
 /*
 --for use case #1--
