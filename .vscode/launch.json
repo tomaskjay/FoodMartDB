@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "App",
+            "request": "launch",
+            "mainClass": "main.App",
+            "projectName": "FoodMartDB_30a7d0fb"
+        },
+        {
+            "type": "java",
+            "name": "Launch App",
+            "request": "launch",
+            "mainClass": "main.App",
+            "projectName": "FoodMartDB"
+        }
+    ]
+  }
+  

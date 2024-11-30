@@ -12,11 +12,11 @@ public class App {
             // Display Main Menu
             System.out.println("\n=== Main Menu ===");
             System.out.println("1. Transactions");
-            System.out.println("6. Inventory");
-            System.out.println("2. Products");
-            System.out.println("3. Customers");
-            System.out.println("4. Employees");
-            System.out.println("5. Suppliers");
+            System.out.println("2. Inventory");
+            System.out.println("3. Products");
+            System.out.println("4. Customers");
+            System.out.println("5. Employees");
+            System.out.println("6. Suppliers");
             System.out.println("7. Exit");
             System.out.print(" Enter choice: ");
 
