@@ -459,3 +459,46 @@ BEGIN
     END
 END;
 GO
+
+--listing and removing expired products
+
+CREATE PROCEDURE TossExpiredProducts AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Temporary table to store expired products for listing
+    CREATE TABLE #ExpiredProducts (
+        inventory_id INT,
+        product_name NVARCHAR(100),
+        location NVARCHAR(20),
+        quantity INT,
+        bulk_order_date DATE
+    );
+
+    -- Insert expired products into the temporary table
+    INSERT INTO #ExpiredProducts (inventory_id, product_name, location, quantity, bulk_order_date)
+    SELECT 
+        i.inventory_id,
+        p.name AS product_name,
+        i.location,
+        i.quantity,
+        b.order_date AS bulk_order_date
+    FROM Inventory i
+    INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+    INNER JOIN Products p ON b.product_id = p.product_id
+    WHERE i.location = 'shelf' 
+      AND DATEDIFF(DAY, b.order_date, GETDATE()) > p.shelf_life;
+
+    -- Select the expired products for listing
+    SELECT * FROM #ExpiredProducts;
+
+    -- Delete the expired products from the inventory
+    DELETE FROM Inventory
+    WHERE inventory_id IN (SELECT inventory_id FROM #ExpiredProducts);
+
+    PRINT 'Expired products have been listed and removed from inventory.';
+
+    -- Drop the temporary table
+    DROP TABLE #ExpiredProducts;
+END;
+GO

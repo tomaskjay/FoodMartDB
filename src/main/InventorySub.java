@@ -29,7 +29,7 @@ public class InventorySub {
                         moveProducts(scanner);
                         break;
                     case 3:
-                        //tossExpiredProducts();
+                        tossExpiredProducts();
                         break;
                     case 4:
                         back = true;
@@ -80,6 +80,25 @@ public class InventorySub {
     
         } catch (SQLException e) {
             System.out.println("Error moving products: " + e.getMessage());
+        }
+    }    
+    
+    private static void tossExpiredProducts() {
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall(
+                 "{CALL TossExpiredProducts}",
+                 ResultSet.TYPE_SCROLL_INSENSITIVE,
+                 ResultSet.CONCUR_READ_ONLY)) {
+    
+            // Execute the stored procedure
+            ResultSet rs = stmt.executeQuery();
+    
+            // Display the results
+            System.out.println("\n=== Expired Products ===");
+            DatabaseHelper.printResultSet(rs);
+    
+        } catch (SQLException e) {
+            System.out.println("Error listing expired products: " + e.getMessage());
         }
     }    
     
