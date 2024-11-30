@@ -60,6 +60,7 @@ CREATE TABLE BulkOrders (
     product_id INT NOT NULL,
     supplier_id INT NOT NULL,
     total_quantity INT NOT NULL CHECK (total_quantity >= 0),
+    order_price INT NOT NULL CHECK (order_price >= 0),
     order_date DATE NOT NULL,
     FOREIGN KEY (product_id) REFERENCES Products(product_id),
     FOREIGN KEY (supplier_id) REFERENCES Supplier(supplier_id)
