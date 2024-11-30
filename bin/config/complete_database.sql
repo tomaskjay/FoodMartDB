@@ -107,7 +107,64 @@ CREATE INDEX idx_sales_sale_date ON Sales(sale_date);
 
 --STORED PROCEDURES--
 
---basic operations--
+-- to create a new contact
+CREATE PROCEDURE AddContact
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(15),
+    @Street NVARCHAR(100),
+    @City NVARCHAR(50),
+    @State CHAR(2),
+    @ZipCode NVARCHAR(10),
+    @ContactID INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Insert the contact information into the Contact table
+    INSERT INTO Contact (email, phone, street, city, state, zip_code)
+    VALUES (@Email, @Phone, @Street, @City, @State, @ZipCode);
+
+    -- Retrieve the newly inserted contact_id
+    SET @ContactID = SCOPE_IDENTITY();
+
+    PRINT 'Contact added successfully.';
+END;
+GO
+
+--to update a contact
+CREATE PROCEDURE UpdateContact
+    @ContactID INT,
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(15),
+    @Street NVARCHAR(100),
+    @City NVARCHAR(50),
+    @State CHAR(2),
+    @ZipCode NVARCHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if the contact exists
+    IF NOT EXISTS (SELECT 1 FROM Contact WHERE contact_id = @ContactID)
+    BEGIN
+        RAISERROR ('Error: Contact ID not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Update the contact details
+    UPDATE Contact
+    SET 
+        email = @Email,
+        phone = @Phone,
+        street = @Street,
+        city = @City,
+        state = @State,
+        zip_code = @ZipCode
+    WHERE contact_id = @ContactID;
+
+    PRINT 'Contact updated successfully.';
+END;
+GO
 
 -- Create Stored Procedure to Get All Products
 CREATE PROCEDURE GetAllProducts
@@ -502,3 +559,284 @@ BEGIN
     DROP TABLE #ExpiredProducts;
 END;
 GO
+
+--for customers
+
+--viewing all customers
+
+CREATE PROCEDURE GetAllCustomers AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        c.customer_id,
+        c.fname AS first_name,
+        c.lname AS last_name,
+        c.age,
+        contact.email,
+        contact.phone,
+        contact.street,
+        contact.city,
+        contact.state,
+        contact.zip_code
+    FROM Customer c
+    INNER JOIN Contact contact ON c.contact_id = contact.contact_id
+    ORDER BY c.customer_id;
+END;
+GO
+
+--adding a customer
+
+CREATE PROCEDURE AddCustomer
+    @FirstName NVARCHAR(50),
+    @LastName NVARCHAR(50),
+    @Age INT,
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(15),
+    @Street NVARCHAR(100),
+    @City NVARCHAR(50),
+    @State CHAR(2),
+    @ZipCode NVARCHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @ContactID INT;
+
+    -- Use AddContact to create a new contact record
+    EXEC AddContact 
+        @Email = @Email,
+        @Phone = @Phone,
+        @Street = @Street,
+        @City = @City,
+        @State = @State,
+        @ZipCode = @ZipCode,
+        @ContactID = @ContactID OUTPUT;
+
+    -- Insert the new customer using the generated contact_id
+    INSERT INTO Customer (fname, lname, age, contact_id)
+    VALUES (@FirstName, @LastName, @Age, @ContactID);
+
+    PRINT 'Customer added successfully.';
+END;
+GO
+
+--updating a customer
+
+
+CREATE PROCEDURE EditCustomer
+    @CustomerID INT,
+    @FirstName NVARCHAR(50),
+    @LastName NVARCHAR(50),
+    @Age INT,
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(15),
+    @Street NVARCHAR(100),
+    @City NVARCHAR(50),
+    @State CHAR(2),
+    @ZipCode NVARCHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @ContactID INT;
+
+    -- Retrieve the contact ID for the customer
+    SELECT @ContactID = contact_id FROM Customer WHERE customer_id = @CustomerID;
+
+    IF @ContactID IS NULL
+    BEGIN
+        RAISERROR ('Error: Customer ID not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Update the contact using the UpdateContact procedure
+    EXEC UpdateContact 
+        @ContactID = @ContactID,
+        @Email = @Email,
+        @Phone = @Phone,
+        @Street = @Street,
+        @City = @City,
+        @State = @State,
+        @ZipCode = @ZipCode;
+
+    -- Update the Customer table
+    UPDATE Customer
+    SET 
+        fname = @FirstName,
+        lname = @LastName,
+        age = @Age
+    WHERE customer_id = @CustomerID;
+
+    PRINT 'Customer updated successfully.';
+END;
+GO
+
+--remove a customer
+
+CREATE PROCEDURE RemoveCustomer
+    @CustomerID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if the customer exists
+    IF NOT EXISTS (SELECT 1 FROM Customer WHERE customer_id = @CustomerID)
+    BEGIN
+        RAISERROR ('Error: Customer ID not found.', 16, 1);
+        RETURN;
+    END
+
+    DECLARE @ContactID INT;
+
+    -- Retrieve the contact ID associated with the customer
+    SELECT @ContactID = contact_id FROM Customer WHERE customer_id = @CustomerID;
+
+    -- Delete the customer record
+    DELETE FROM Customer
+    WHERE customer_id = @CustomerID;
+
+    -- Delete the associated contact record
+    DELETE FROM Contact
+    WHERE contact_id = @ContactID;
+
+    PRINT 'Customer and associated contact removed successfully.';
+END;
+GO
+
+--for suppliers
+
+CREATE PROCEDURE GetAllSuppliers AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        s.supplier_id,
+        s.name AS supplier_name,
+        c.email,
+        c.phone,
+        c.street,
+        c.city,
+        c.state,
+        c.zip_code
+    FROM Supplier s
+    INNER JOIN Contact c ON s.contact_id = c.contact_id
+    ORDER BY s.supplier_id;
+END;
+GO
+
+CREATE PROCEDURE AddSupplier
+    @Name NVARCHAR(100),
+    @ContactID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO Supplier (name, contact_id)
+    VALUES (@Name, @ContactID);
+
+    PRINT 'Supplier added successfully.';
+END;
+GO
+
+
+CREATE PROCEDURE UpdateSupplier
+    @SupplierID INT,
+    @Name NVARCHAR(100)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE Supplier
+    SET name = @Name
+    WHERE supplier_id = @SupplierID;
+
+    PRINT 'Supplier updated successfully.';
+END;
+GO
+
+CREATE PROCEDURE GetContactBySupplier
+    @SupplierID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT contact_id
+    FROM Supplier
+    WHERE supplier_id = @SupplierID;
+END;
+GO
+
+--for employee submenu
+
+CREATE PROCEDURE CheckEmployeeStatus
+    @EmployeeID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT status
+    FROM Employee
+    WHERE employee_id = @EmployeeID;
+END;
+GO
+
+CREATE PROCEDURE AddEmployee
+    @FirstName NVARCHAR(50),
+    @LastName NVARCHAR(50),
+    @Age INT,
+    @ContactID INT,
+    @Position NVARCHAR(50),
+    @HourlyWage NUMERIC(10, 2),
+    @StartDate DATE,
+    @EndDate DATE = NULL,
+    @HoursWorked INT = 0,
+    @Status NVARCHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO Employee (fname, lname, age, contact_id, position, hourly_wage, beg_date, end_date, hours_worked, status)
+    VALUES (@FirstName, @LastName, @Age, @ContactID, @Position, @HourlyWage, @StartDate, @EndDate, @HoursWorked, @Status);
+
+    PRINT 'Employee added successfully.';
+END;
+GO
+
+CREATE PROCEDURE UpdateEmployee
+    @EmployeeID INT,
+    @FirstName NVARCHAR(50),
+    @LastName NVARCHAR(50),
+    @Age INT,
+    @Position NVARCHAR(50),
+    @HourlyWage NUMERIC(10, 2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE Employee
+    SET 
+        fname = @FirstName,
+        lname = @LastName,
+        age = @Age,
+        position = @Position,
+        hourly_wage = @HourlyWage
+    WHERE employee_id = @EmployeeID;
+
+    PRINT 'Employee updated successfully.';
+END;
+GO
+
+
+CREATE PROCEDURE GetContactByEmployee
+    @EmployeeID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT contact_id
+    FROM Employee
+    WHERE employee_id = @EmployeeID;
+END;
+GO
+

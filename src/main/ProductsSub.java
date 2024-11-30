@@ -12,10 +12,10 @@ public class ProductsSub {
 
         while (!back) {
             System.out.println("\n=== Manage Products ===");
-            System.out.println("1. View All Products");
-            System.out.println("2. Add New Product");
-            System.out.println("3. Edit a Product");
-            System.out.println("4. Remove a Product");
+            System.out.println("1. View");
+            System.out.println("2. Add");
+            System.out.println("3. Edit");
+            System.out.println("4. Remove");
             System.out.println("5. Back to Main Menu");
             System.out.print("Enter your choice: ");
 

@@ -11,7 +11,8 @@ public class TransactionsSub {
             System.out.println("2. Orders");
             System.out.println("3. Make a Return");
             System.out.println("4. Check Profit");
-            System.out.println("5. Back to Main Menu");
+            System.out.println("5. View Popular");
+            System.out.println("6. Back to Main Menu");
             System.out.print("Enter your choice: ");
 
             if (scanner.hasNextInt()) {
@@ -30,6 +31,9 @@ public class TransactionsSub {
                         //manageProfit(scanner);
                         break;
                     case 5:
+                        //managePopular(scanner);
+                        break;
+                    case 6:
                         back = true;
                         break;
                     default:

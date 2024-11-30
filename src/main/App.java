@@ -12,11 +12,11 @@ public class App {
             // Display Main Menu
             System.out.println("\n=== Main Menu ===");
             System.out.println("1. Transactions");
+            System.out.println("6. Inventory");
             System.out.println("2. Products");
             System.out.println("3. Customers");
             System.out.println("4. Employees");
             System.out.println("5. Suppliers");
-            System.out.println("6. Inventory");
             System.out.println("7. Exit");
             System.out.print(" Enter choice: ");
 
@@ -29,19 +29,19 @@ public class App {
                     TransactionsSub.manageTransactions(scanner);
                     break;
                 case 2:
-                    ProductsSub.manageProducts(scanner);
+                    InventorySub.manageInventory(scanner);
                     break;
                 case 3:
-                    //CustomerSub.manageCustomers(scanner);
+                    CustomersSub.manageCustomers(scanner);
                     break;
                 case 4:
-                    //EmployeeSub.manageEmployees(scanner);
+                    EmployeesSub.manageEmployees(scanner);
                     break;
                 case 5:
-                    //SupplierSub.manageSuppliers(scanner);
+                    SuppliersSub.manageSuppliers(scanner);
                     break;
                 case 6:
-                    InventorySub.manageInventory(scanner);
+                    ProductsSub.manageProducts(scanner);
                     break;
                 case 7:
                     exit = true;

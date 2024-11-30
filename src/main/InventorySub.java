@@ -16,6 +16,7 @@ public class InventorySub {
             System.out.println("1. View Inventory");
             System.out.println("2. Move Products from Storage to Shelf");
             System.out.println("3. Toss Expired Products");
+            System.out.println("3. Toss Products");
             System.out.println("4. Back to Main Menu");
             System.out.print("Enter your choice: ");
 
@@ -32,6 +33,9 @@ public class InventorySub {
                         tossExpiredProducts();
                         break;
                     case 4:
+                        //tossProducts();
+                        break;
+                    case 5:
                         back = true;
                         break;
                     default:
