@@ -333,93 +333,129 @@ BEGIN
 END;
 GO
 
+--for inventory
 
+--viewing all inventory
+CREATE PROCEDURE GetInventory AS
+BEGIN
+    SET NOCOUNT ON;
 
+    SELECT 
+        i.inventory_id,
+        i.bulk_order_id,
+        p.name AS product_name,
+        i.location,
+        i.quantity
+    FROM Inventory i
+    INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+    INNER JOIN Products p ON b.product_id = p.product_id
+    ORDER BY i.location, p.name;
+END;
+GO
 
-/*
---for use case #1--
-
-CREATE PROCEDURE sp_add_customer
-    @contact_id INT,
-    @fname VARCHAR(50),
-    @lname VARCHAR(50),
-    @age INT = NULL -- Optional parameter, default is NULL
+--moving products to shelf
+CREATE PROCEDURE MoveProductToShelf
+    @InventoryID INT,
+    @QuantityToMove INT
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Validate age if provided
-    IF @age IS NOT NULL AND @age <= 0
+    -- Variables for inventory tracking
+    DECLARE @StorageQuantity INT;
+    DECLARE @BulkOrderID INT;
+    DECLARE @ShelfInventoryID INT;
+    DECLARE @ShelfQuantity INT;
+
+    -- Fetch storage details for the given inventory ID
+    SELECT 
+        @StorageQuantity = quantity, 
+        @BulkOrderID = bulk_order_id
+    FROM Inventory
+    WHERE inventory_id = @InventoryID AND location = 'storage';
+
+    -- Check if the record exists in storage
+    IF @StorageQuantity IS NULL
     BEGIN
-        PRINT 'Invalid age. Age must be a positive number.';
+        RAISERROR ('No products found in storage for the given inventory ID.', 16, 1);
         RETURN;
     END
 
-    INSERT INTO Customer (fname, lname, contact_id, age)
-    VALUES (@fname, @lname, @contact_id, @age);
+    -- Check if the quantity to move exceeds storage quantity
+    IF @StorageQuantity < @QuantityToMove
+    BEGIN
+        RAISERROR ('Not enough quantity in storage to move.', 16, 1);
+        RETURN;
+    END
 
-    PRINT 'Customer added successfully.';
+    -- Check if a record for the bulk order already exists on the shelf
+    SELECT 
+        @ShelfInventoryID = inventory_id, 
+        @ShelfQuantity = quantity
+    FROM Inventory
+    WHERE bulk_order_id = @BulkOrderID AND location = 'shelf';
+
+    -- If the inventory ID is already on the shelf
+    IF @InventoryID = @ShelfInventoryID
+    BEGIN
+        RAISERROR ('The specified inventory ID is already on the shelf.', 16, 1);
+        RETURN;
+    END
+
+    -- Handle full quantity move
+    IF @QuantityToMove = @StorageQuantity
+    BEGIN
+        IF @ShelfInventoryID IS NOT NULL
+        BEGIN
+            -- Combine with existing shelf record and delete the storage record
+            UPDATE Inventory
+            SET quantity = quantity + @StorageQuantity
+            WHERE inventory_id = @ShelfInventoryID;
+
+            DELETE FROM Inventory
+            WHERE inventory_id = @InventoryID;
+
+            PRINT 'All products moved to shelf and combined with existing inventory.';
+        END
+        ELSE
+        BEGIN
+            -- Change location of storage record to shelf
+            UPDATE Inventory
+            SET location = 'shelf'
+            WHERE inventory_id = @InventoryID;
+
+            PRINT 'All products moved to shelf successfully.';
+        END
+        RETURN;
+    END
+
+    -- Handle partial quantity move
+    IF @ShelfInventoryID IS NOT NULL
+    BEGIN
+        -- Combine with existing shelf record
+        UPDATE Inventory
+        SET quantity = quantity + @QuantityToMove
+        WHERE inventory_id = @ShelfInventoryID;
+
+        -- Decrement storage quantity
+        UPDATE Inventory
+        SET quantity = quantity - @QuantityToMove
+        WHERE inventory_id = @InventoryID;
+
+        PRINT 'Products moved and combined with existing shelf inventory.';
+    END
+    ELSE
+    BEGIN
+        -- Create a new shelf record for the partial quantity
+        INSERT INTO Inventory (bulk_order_id, location, quantity)
+        VALUES (@BulkOrderID, 'shelf', @QuantityToMove);
+
+        -- Decrement storage quantity
+        UPDATE Inventory
+        SET quantity = quantity - @QuantityToMove
+        WHERE inventory_id = @InventoryID;
+
+        PRINT 'Products moved and new shelf inventory created.';
+    END
 END;
-
-CREATE PROCEDURE sp_add_contact
-    @email VARCHAR(100),
-    @phone VARCHAR(15),
-    @street VARCHAR(100),
-    @city VARCHAR(50),
-    @state CHAR(2),
-    @zip_code VARCHAR(10),
-    @new_contact_id INT OUTPUT -- Optional output parameter to return the new contact ID
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Validate required fields
-    IF @email IS NULL OR LEN(@email) = 0
-    BEGIN
-        PRINT 'Email is required.';
-        RETURN;
-    END
-
-    IF @phone IS NULL OR LEN(@phone) = 0
-    BEGIN
-        PRINT 'Phone is required.';
-        RETURN;
-    END
-
-    IF @street IS NULL OR LEN(@street) = 0
-    BEGIN
-        PRINT 'Street address is required.';
-        RETURN;
-    END
-
-    IF @city IS NULL OR LEN(@city) = 0
-    BEGIN
-        PRINT 'City is required.';
-        RETURN;
-    END
-
-    IF @state IS NULL OR LEN(@state) != 2
-    BEGIN
-        PRINT 'State must be a valid two-character code.';
-        RETURN;
-    END
-
-    IF @zip_code IS NULL OR LEN(@zip_code) = 0
-    BEGIN
-        PRINT 'Zip code is required.';
-        RETURN;
-    END
-
-    -- Insert new contact into the Contact table
-    INSERT INTO Contact (email, phone, street, city, state, zip_code)
-    VALUES (@email, @phone, @street, @city, @state, @zip_code);
-
-    -- Retrieve the ID of the newly inserted contact
-    SET @new_contact_id = SCOPE_IDENTITY();
-
-    PRINT 'Contact added successfully.';
-END;
-
---for use case #2--
-
-*/
+GO

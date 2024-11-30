@@ -41,7 +41,7 @@ public class App {
                     //SupplierSub.manageSuppliers(scanner);
                     break;
                 case 6:
-                    //InventorySub.manageInventory(scanner);
+                    InventorySub.manageInventory(scanner);
                     break;
                 case 7:
                     exit = true;
