@@ -29,6 +29,7 @@ public class TransactionsSub {
                         break;
                     case 4:
                         //manageProfit(scanner);
+                        //quantity sold * price - quantity ordered * price - hours worked * hourly wage
                         break;
                     case 5:
                         //managePopular(scanner);

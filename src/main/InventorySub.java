@@ -16,8 +16,9 @@ public class InventorySub {
             System.out.println("1. View Inventory");
             System.out.println("2. Move Products from Storage to Shelf");
             System.out.println("3. Toss Expired Products");
-            System.out.println("3. Toss Products");
-            System.out.println("4. Back to Main Menu");
+            System.out.println("4. Toss Products");
+            System.out.println("5. Check Shoplifting");
+            System.out.println("6. Back to Main Menu");
             System.out.print("Enter your choice: ");
 
             if (scanner.hasNextInt()) {
@@ -36,6 +37,9 @@ public class InventorySub {
                         //tossProducts();
                         break;
                     case 5:
+                        //checkShoplifting();
+                        break;
+                    case 6:
                         back = true;
                         break;
                     default:
