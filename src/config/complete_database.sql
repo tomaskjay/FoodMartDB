@@ -69,14 +69,14 @@ CREATE TABLE BulkOrders (
 CREATE TABLE Inventory (
     inventory_id INT PRIMARY KEY IDENTITY(1,1),
     bulk_order_id INT NOT NULL,
-    location VARCHAR(20) NOT NULL CHECK (location IN ('storage', 'shelf')),
+    location VARCHAR(20) NOT NULL CHECK (location IN ('storage', 'shelf', 'sold', 'expired')),
     quantity INT NOT NULL CHECK (quantity >= 0),
     FOREIGN KEY (bulk_order_id) REFERENCES BulkOrders(bulk_order_id)
 );
 
 CREATE TABLE Sales (
     sale_id INT PRIMARY KEY IDENTITY(1,1),
-    inventory_id INT NOT NULL,
+    inventory_id INT NULL,
     customer_id INT NOT NULL,
     sale_quantity INT NOT NULL CHECK (sale_quantity > 0),
     sale_date DATE NOT NULL,
@@ -234,12 +234,15 @@ CREATE PROCEDURE MakeOrder
     @ProductID INT,
     @SupplierID INT,
     @TotalQuantity INT,
-    @OrderDate DATE
+    @OrderDate DATE,
+    @OrderPrice NUMERIC(10, 2) -- New parameter for order price
 AS
 BEGIN
-    -- Insert into BulkOrders
-    INSERT INTO BulkOrders (product_id, supplier_id, total_quantity, order_date)
-    VALUES (@ProductID, @SupplierID, @TotalQuantity, @OrderDate);
+    SET NOCOUNT ON;
+
+    -- Insert into BulkOrders with the new attribute `order_price`
+    INSERT INTO BulkOrders (product_id, supplier_id, total_quantity, order_date, order_price)
+    VALUES (@ProductID, @SupplierID, @TotalQuantity, @OrderDate, @OrderPrice);
 
     -- Get the BulkOrderID of the newly inserted order
     DECLARE @BulkOrderID INT = SCOPE_IDENTITY();
@@ -247,6 +250,8 @@ BEGIN
     -- Insert into Inventory with location as 'storage'
     INSERT INTO Inventory (bulk_order_id, location, quantity)
     VALUES (@BulkOrderID, 'storage', @TotalQuantity);
+
+    PRINT 'Order and associated inventory created successfully.';
 END;
 GO
 
@@ -347,6 +352,97 @@ AS BEGIN
 END;
 GO
 
+CREATE PROCEDURE GetCustomerById
+    @CustomerID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        customer_id,
+        fname,
+        lname
+    FROM Customer
+    WHERE customer_id = @CustomerID;
+END;
+GO
+
+
+CREATE PROCEDURE GetLastCustomerId AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT TOP 1 customer_id
+    FROM Customer
+    ORDER BY customer_id DESC;
+END;
+GO
+
+
+CREATE PROCEDURE GetInventoryById
+    @InventoryID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        inventory_id,
+        bulk_order_id,
+        location,
+        quantity
+    FROM Inventory
+    WHERE inventory_id = @InventoryID;
+END;
+GO
+
+CREATE PROCEDURE RecordSale
+    @InventoryID INT,
+    @CustomerID INT,
+    @SaleQuantity INT,
+    @SaleDate DATE,
+    @SalePrice NUMERIC(10, 2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO Sales (inventory_id, customer_id, sale_quantity, sale_date, sale_price)
+    VALUES (@InventoryID, @CustomerID, @SaleQuantity, @SaleDate, @SalePrice);
+
+    PRINT 'Sale recorded successfully.';
+END;
+GO
+
+
+CREATE PROCEDURE DecrementInventory
+    @InventoryID INT,
+    @Quantity INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE Inventory
+    SET quantity = quantity - @Quantity
+    WHERE inventory_id = @InventoryID;
+
+    PRINT 'Inventory decremented successfully.';
+END;
+GO
+
+
+CREATE PROCEDURE UpdateInventory
+    @InventoryID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DELETE FROM Inventory
+    WHERE inventory_id = @InventoryID;
+
+    PRINT 'Inventory record deleted successfully.';
+END;
+GO
+
+
 --for orders
 
 CREATE PROCEDURE GetAllOrders AS BEGIN
@@ -354,11 +450,31 @@ CREATE PROCEDURE GetAllOrders AS BEGIN
 END;
 GO
 
+--CHHHHHHHHHHHHHHHHHHHHHHAAAAAAAAAAAAAAAAAANNNNNNNNNNNNNNGGGGGGGGGGGGGGGEEEEEEEEEEEEEEEEE
+
 CREATE PROCEDURE UpdateOrder
     @OrderID INT,
-    @Quantity INT
-AS BEGIN
-    UPDATE BulkOrders SET total_quantity = @Quantity WHERE bulk_order_id = @OrderID;
+    @OrderDate DATE = NULL,
+    @OrderPrice NUMERIC(10, 2) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if the order exists
+    IF NOT EXISTS (SELECT 1 FROM BulkOrders WHERE bulk_order_id = @OrderID)
+    BEGIN
+        RAISERROR ('Error: Order ID not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Update attributes other than total_quantity
+    UPDATE BulkOrders
+    SET 
+        order_date = ISNULL(@OrderDate, order_date),
+        order_price = ISNULL(@OrderPrice, order_price)
+    WHERE bulk_order_id = @OrderID;
+
+    PRINT 'Order updated successfully.';
 END;
 GO
 
@@ -407,6 +523,7 @@ BEGIN
     FROM Inventory i
     INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
     INNER JOIN Products p ON b.product_id = p.product_id
+    WHERE i.location IN ('storage', 'shelf') -- Only include storage and shelf locations
     ORDER BY i.location, p.name;
 END;
 GO
@@ -770,6 +887,34 @@ GO
 
 --for employee submenu
 
+CREATE PROCEDURE GetAllEmployees AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        e.employee_id,
+        e.fname AS first_name,
+        e.lname AS last_name,
+        e.age,
+        e.position,
+        e.hourly_wage,
+        e.beg_date AS start_date,
+        e.end_date AS end_date,
+        e.hours_worked,
+        e.status,
+        c.email,
+        c.phone,
+        c.street,
+        c.city,
+        c.state,
+        c.zip_code
+    FROM Employee e
+    INNER JOIN Contact c ON e.contact_id = c.contact_id
+    ORDER BY e.employee_id;
+END;
+GO
+
+
 CREATE PROCEDURE CheckEmployeeStatus
     @EmployeeID INT
 AS
@@ -840,4 +985,3 @@ BEGIN
     WHERE employee_id = @EmployeeID;
 END;
 GO
-

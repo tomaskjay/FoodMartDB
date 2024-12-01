@@ -32,16 +32,16 @@ public class App {
                     InventorySub.manageInventory(scanner);
                     break;
                 case 3:
-                    CustomersSub.manageCustomers(scanner);
+                    ProductsSub.manageProducts(scanner);
                     break;
                 case 4:
-                    EmployeesSub.manageEmployees(scanner);
+                    CustomersSub.manageCustomers(scanner);
                     break;
                 case 5:
-                    SuppliersSub.manageSuppliers(scanner);
+                    EmployeesSub.manageEmployees(scanner);
                     break;
                 case 6:
-                    ProductsSub.manageProducts(scanner);
+                    SuppliersSub.manageSuppliers(scanner);
                     break;
                 case 7:
                     exit = true;

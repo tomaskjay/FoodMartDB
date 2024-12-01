@@ -26,7 +26,7 @@ public class SalesSub {
                         viewAllSales();
                         break;
                     case 2:
-                        addSale();
+                        addSale(scanner);
                         break;
                     case 3:
                         updateSale(scanner);
@@ -63,9 +63,127 @@ public class SalesSub {
         }
     }
 
-    private static void addSale() {
-
-    }
+    private static void addSale(Scanner scanner) {
+        System.out.print("Is this an existing customer? (yes/no): ");
+        scanner.nextLine(); // Consume leftover newline
+        String isExistingCustomer = scanner.nextLine().trim().toLowerCase();
+    
+        int customerId;
+    
+        if (isExistingCustomer.equals("yes")) {
+            System.out.print("Enter Customer ID: ");
+            customerId = scanner.nextInt();
+    
+            // Validate customer ID
+            try (Connection conn = SQLConnection.getConnection();
+                 CallableStatement stmt = conn.prepareCall("{CALL GetCustomerById(?)}")) {
+    
+                stmt.setInt(1, customerId);
+                ResultSet rs = stmt.executeQuery();
+    
+                if (!rs.next()) {
+                    System.out.println("Error: Customer ID not found.");
+                    return;
+                }
+    
+            } catch (SQLException e) {
+                System.out.println("Error verifying customer: " + e.getMessage());
+                return;
+            }
+        } else {
+            // Add a new customer
+            CustomersSub.addCustomer(scanner);
+    
+            // Retrieve the newly added customer's ID
+            try (Connection conn = SQLConnection.getConnection();
+                 CallableStatement stmt = conn.prepareCall("{CALL GetLastCustomerId}")) {
+    
+                ResultSet rs = stmt.executeQuery();
+                if (rs.next()) {
+                    customerId = rs.getInt("customer_id");
+                    System.out.println("New customer added with ID: " + customerId);
+                } else {
+                    System.out.println("Error retrieving new customer ID.");
+                    return;
+                }
+    
+            } catch (SQLException e) {
+                System.out.println("Error retrieving new customer ID: " + e.getMessage());
+                return;
+            }
+        }
+    
+        System.out.print("Enter Inventory ID to sell: ");
+        int inventoryId = scanner.nextInt();
+    
+        System.out.print("Enter Sale Quantity: ");
+        int saleQuantity = scanner.nextInt();
+    
+        System.out.print("Enter Sale Date (YYYY-MM-DD): ");
+        scanner.nextLine(); // Consume leftover newline
+        String saleDate = scanner.nextLine();
+    
+        System.out.print("Enter Total Sale Price: ");
+        double salePrice = scanner.nextDouble();
+    
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement getInventoryStmt = conn.prepareCall("{CALL GetInventoryById(?)}");
+             CallableStatement updateInventoryStmt = conn.prepareCall("{CALL UpdateInventory(?)}");
+             CallableStatement addSaleStmt = conn.prepareCall("{CALL RecordSale(?, ?, ?, ?, ?)}")) {
+    
+            // Validate inventory ID and ensure it's from the shelf
+            getInventoryStmt.setInt(1, inventoryId);
+            ResultSet rs = getInventoryStmt.executeQuery();
+    
+            if (!rs.next()) {
+                System.out.println("Error: Inventory ID not found.");
+                return;
+            }
+    
+            String location = rs.getString("location");
+            int currentQuantity = rs.getInt("quantity");
+    
+            if (!location.equalsIgnoreCase("shelf")) {
+                System.out.println("Error: Only items from the shelf can be sold.");
+                return;
+            }
+    
+            if (saleQuantity > currentQuantity) {
+                System.out.println("Error: Insufficient quantity on the shelf.");
+                return;
+            }
+    
+            // Record the sale
+            addSaleStmt.setInt(1, inventoryId);
+            addSaleStmt.setInt(2, customerId);
+            addSaleStmt.setInt(3, saleQuantity);
+            addSaleStmt.setString(4, saleDate);
+            addSaleStmt.setDouble(5, salePrice);
+    
+            addSaleStmt.execute();
+    
+            // Update inventory
+            if (saleQuantity == currentQuantity) {
+                // If all items are sold, delete the inventory record
+                updateInventoryStmt.setInt(1, inventoryId);
+                updateInventoryStmt.execute();
+                System.out.println("All items sold. Inventory record deleted.");
+            } else {
+                // Otherwise, decrement the quantity
+                try (CallableStatement decrementInventoryStmt = conn.prepareCall("{CALL DecrementInventory(?, ?)}")) {
+                    decrementInventoryStmt.setInt(1, inventoryId);
+                    decrementInventoryStmt.setInt(2, saleQuantity);
+                    decrementInventoryStmt.execute();
+                    System.out.println("Inventory updated. Remaining quantity: " + (currentQuantity - saleQuantity));
+                }
+            }
+    
+            System.out.println("Sale recorded successfully!");
+    
+        } catch (SQLException e) {
+            System.out.println("Error recording sale: " + e.getMessage());
+        }
+    }    
 
 
     private static void updateSale(Scanner scanner) {

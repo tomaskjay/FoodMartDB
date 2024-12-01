@@ -62,9 +62,9 @@ public class OrdersSub {
         }
     }
 
-    public static void makeOrder(Scanner scanner){
+    public static void makeOrder(Scanner scanner) {
         scanner.nextLine(); // Clear any leftover input before starting the method
-
+    
         System.out.print("Is this a new product? (yes/no): ");
         String isNewProduct = "";
     
@@ -115,14 +115,23 @@ public class OrdersSub {
         System.out.print("Enter Order Date (YYYY-MM-DD): ");
         String orderDate = scanner.nextLine().trim();
     
+        System.out.print("Enter Order Price: ");
+        while (!scanner.hasNextDouble()) { // Ensure valid numeric input
+            System.out.println("Invalid input. Please enter a valid order price.");
+            scanner.next(); // Consume invalid input
+        }
+        double orderPrice = scanner.nextDouble();
+        scanner.nextLine(); // Consume leftover newline
+    
         try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall("{CALL MakeOrder(?, ?, ?, ?)}")) {
+             CallableStatement stmt = conn.prepareCall("{CALL MakeOrder(?, ?, ?, ?, ?)}")) {
     
             // Set parameters for the stored procedure
             stmt.setInt(1, productID);
             stmt.setInt(2, supplierID);
             stmt.setInt(3, totalQuantity);
             stmt.setString(4, orderDate);
+            stmt.setDouble(5, orderPrice);
     
             // Execute the stored procedure
             stmt.executeUpdate();
@@ -131,28 +140,68 @@ public class OrdersSub {
         } catch (SQLException e) {
             System.out.println("Error creating order: " + e.getMessage());
         }
-    }
+    }    
 
     private static void updateOrder(Scanner scanner) {
+        System.out.println("Only the order date and order price can be updated.");
         System.out.print("Enter Order ID to update: ");
         int orderID = scanner.nextInt();
-
-        System.out.print("Enter new quantity: ");
-        int quantity = scanner.nextInt();
-
+        scanner.nextLine(); // Consume the leftover newline
+    
+        System.out.print("Do you want to update the order date? (yes/no): ");
+        String updateDate = scanner.nextLine().trim().toLowerCase();
+    
+        String orderDate = null;
+        if (updateDate.equals("yes")) {
+            System.out.print("Enter new order date (YYYY-MM-DD): ");
+            orderDate = scanner.nextLine().trim();
+        }
+    
+        System.out.print("Do you want to update the order price? (yes/no): ");
+        String updatePrice = scanner.nextLine().trim().toLowerCase();
+    
+        Double orderPrice = null;
+        if (updatePrice.equals("yes")) {
+            System.out.print("Enter new order price: ");
+            while (!scanner.hasNextDouble()) {
+                System.out.println("Invalid input. Please enter a valid price.");
+                scanner.next(); // Consume invalid input
+            }
+            orderPrice = scanner.nextDouble();
+            scanner.nextLine(); // Consume leftover newline
+        }
+    
+        if (orderDate == null && orderPrice == null) {
+            System.out.println("No updates made. Exiting.");
+            return;
+        }
+    
         try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall("{CALL UpdateOrder(?, ?)}")) {
-
+             CallableStatement stmt = conn.prepareCall("{CALL UpdateOrder(?, ?, ?)}")) {
+    
+            // Set parameters for the stored procedure
             stmt.setInt(1, orderID);
-            stmt.setInt(2, quantity);
-
+    
+            if (orderDate != null) {
+                stmt.setString(2, orderDate);
+            } else {
+                stmt.setNull(2, java.sql.Types.DATE);
+            }
+    
+            if (orderPrice != null) {
+                stmt.setDouble(3, orderPrice);
+            } else {
+                stmt.setNull(3, java.sql.Types.DOUBLE);
+            }
+    
+            // Execute the stored procedure
             stmt.executeUpdate();
             System.out.println("Order updated successfully!");
-
+    
         } catch (SQLException e) {
             System.out.println("Error updating order: " + e.getMessage());
         }
-    }
+    }    
 
     private static void deleteOrder(Scanner scanner) {
         System.out.print("Enter Order ID to delete: ");

@@ -67,7 +67,7 @@ public class CustomersSub {
         }
     }
 
-    private static void addCustomer(Scanner scanner) {
+    static void addCustomer(Scanner scanner) {
         System.out.print("Enter First Name: ");
         scanner.nextLine(); // Consume leftover newline
         String firstName = scanner.nextLine();

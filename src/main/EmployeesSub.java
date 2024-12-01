@@ -63,7 +63,7 @@ public class EmployeesSub {
         }
     }
 
-    private static void addEmployee(Scanner scanner) {
+    public static void addEmployee(Scanner scanner) {
         System.out.print("Has this person worked at the FoodMart before? (yes/no): ");
         scanner.nextLine(); // Consume leftover newline
         String hasWorkedBefore = scanner.nextLine().trim().toLowerCase();
