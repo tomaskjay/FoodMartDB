@@ -16,9 +16,8 @@ public class InventorySub {
             System.out.println("1. View Inventory");
             System.out.println("2. Move Products from Storage to Shelf");
             System.out.println("3. Mark Expired Products");
-            System.out.println("4. Clean Inventory");
-            System.out.println("5. Check Shoplifting"); //NOT IMPLEMENTED
-            System.out.println("6. Back to Main Menu");
+            System.out.println("4. Detect Shoplifting"); //NOT IMPLEMENTED
+            System.out.println("5. Back to Main Menu");
             System.out.print("Enter your choice: ");
 
             if (scanner.hasNextInt()) {
@@ -34,12 +33,9 @@ public class InventorySub {
                         markExpiredProducts();
                         break;
                     case 4:
-                        //tossProducts();
+                        detectShoplifting();
                         break;
                     case 5:
-                        //checkShoplifting();
-                        break;
-                    case 6:
                         back = true;
                         break;
                     default:
@@ -107,5 +103,36 @@ public class InventorySub {
             System.out.println("Error marking expired products: " + e.getMessage());
         }
     }    
+
+    private static void detectShoplifting() {
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall("{CALL DetectShoplifting}", 
+                 ResultSet.TYPE_SCROLL_INSENSITIVE, 
+                 ResultSet.CONCUR_READ_ONLY)) {
     
+            ResultSet rs = stmt.executeQuery();
+            System.out.println("\n=== Potential Shoplifting Detected ===");
+            System.out.printf("%-20s %-15s %-15s %-15s %-15s\n", 
+                "Product Name", "Total Ordered", "Total Sold", "Total Inventory", "Discrepancy");
+    
+            boolean foundDiscrepancies = false;
+    
+            while (rs.next()) {
+                foundDiscrepancies = true;
+                System.out.printf("%-20s %-15d %-15d %-15d %-15d\n",
+                    rs.getString("product_name"),
+                    rs.getInt("total_ordered"),
+                    rs.getInt("total_sold"),
+                    rs.getInt("total_inventory"),
+                    rs.getInt("discrepancy"));
+            }
+    
+            if (!foundDiscrepancies) {
+                System.out.println("No discrepancies found. All products accounted for.");
+            }
+    
+        } catch (SQLException e) {
+            System.out.println("Error detecting shoplifting: " + e.getMessage());
+        }
+    }    
 }

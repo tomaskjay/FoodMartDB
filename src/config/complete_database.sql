@@ -1065,3 +1065,70 @@ BEGIN
     PRINT 'Expired products have been marked successfully.';
 END;
 GO
+
+CREATE PROCEDURE DetectShoplifting
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Identify discrepancies in product quantities
+    SELECT 
+        p.name AS product_name,
+        bos.total_ordered AS total_ordered,
+        COALESCE(ss.total_sold, 0) AS total_sold,
+        COALESCE(isum.total_inventory, 0) AS total_inventory,
+        bos.total_ordered - (COALESCE(ss.total_sold, 0) + COALESCE(isum.total_inventory, 0)) AS discrepancy
+    FROM (
+        -- Total quantity ordered
+        SELECT 
+            b.product_id,
+            SUM(b.total_quantity) AS total_ordered
+        FROM BulkOrders b
+        GROUP BY b.product_id
+    ) bos
+    LEFT JOIN (
+        -- Total quantity sold
+        SELECT 
+            b.product_id,
+            SUM(s.sale_quantity) AS total_sold
+        FROM Sales s
+        INNER JOIN Inventory i ON s.inventory_id = i.inventory_id
+        INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+        GROUP BY b.product_id
+    ) ss ON bos.product_id = ss.product_id
+    LEFT JOIN (
+        -- Total quantity remaining in inventory
+        SELECT 
+            b.product_id,
+            SUM(i.quantity) AS total_inventory
+        FROM Inventory i
+        INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+        GROUP BY b.product_id
+    ) isum ON bos.product_id = isum.product_id
+    INNER JOIN Products p ON bos.product_id = p.product_id
+    WHERE bos.total_ordered <> (COALESCE(ss.total_sold, 0) + COALESCE(isum.total_inventory, 0));
+
+    PRINT 'Shoplifting detection completed.';
+END;
+GO
+
+CREATE PROCEDURE GetPopularProducts
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT 
+        p.name AS product_name,
+        SUM(s.sale_quantity) AS total_sold,
+        SUM(s.sale_quantity * s.sale_price) AS total_revenue
+    FROM Sales s
+    INNER JOIN Inventory i ON s.inventory_id = i.inventory_id
+    INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+    INNER JOIN Products p ON b.product_id = p.product_id
+    GROUP BY p.name
+    ORDER BY total_sold DESC, total_revenue DESC;
+
+    PRINT 'Popular products fetched successfully.';
+END;
+GO
+

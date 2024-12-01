@@ -16,9 +16,8 @@ public class TransactionsSub {
             System.out.println("1. Sales");
             System.out.println("2. Orders");
             System.out.println("3. Make a Return");
-            System.out.println("4. Check Profit"); //NOT NECESSARY
-            System.out.println("5. View Popular"); //NOT IMPLEMENTED
-            System.out.println("6. Back to Main Menu");
+            System.out.println("4. View Popular");
+            System.out.println("5. Back to Main Menu");
             System.out.print("Enter your choice: ");
 
             if (scanner.hasNextInt()) {
@@ -34,13 +33,9 @@ public class TransactionsSub {
                         manageReturns(scanner);
                         break;
                     case 4:
-                        //manageProfit(scanner);
-                        //quantity sold * price - quantity ordered * price - hours worked * hourly wage
+                        viewPopularProducts();
                         break;
                     case 5:
-                        //managePopular(scanner);
-                        break;
-                    case 6:
                         back = true;
                         break;
                     default:
@@ -109,7 +104,36 @@ public class TransactionsSub {
 
     } catch (SQLException e) {
         System.out.println("Error processing return: " + e.getMessage());
-    }
-}
+        }
+    }   
+
+    private static void viewPopularProducts() {
+        try (Connection conn = SQLConnection.getConnection();
+             CallableStatement stmt = conn.prepareCall("{CALL GetPopularProducts}", 
+                 ResultSet.TYPE_SCROLL_INSENSITIVE, 
+                 ResultSet.CONCUR_READ_ONLY)) {
+    
+            ResultSet rs = stmt.executeQuery();
+            System.out.println("\n=== Popular Products ===");
+            System.out.printf("%-30s %-15s %-15s\n", "Product Name", "Total Sold", "Total Revenue");
+    
+            boolean foundProducts = false;
+    
+            while (rs.next()) {
+                foundProducts = true;
+                System.out.printf("%-30s %-15d $%-15.2f\n",
+                    rs.getString("product_name"),
+                    rs.getInt("total_sold"),
+                    rs.getDouble("total_revenue"));
+            }
+    
+            if (!foundProducts) {
+                System.out.println("No sales data available.");
+            }
+    
+        } catch (SQLException e) {
+            System.out.println("Error fetching popular products: " + e.getMessage());
+        }
+    }    
 
 }
