@@ -13,7 +13,7 @@ public class SalesSub {
         while (!back) {
             System.out.println("\n=== Manage Sales ===");
             System.out.println("1. View All Sales");
-            System.out.println("2. Record a Sale (Not Implemented)");
+            System.out.println("2. Record a Sale");
             System.out.println("3. Edit a Sale");
             System.out.println("4. Remove a Sale");
             System.out.println("5. Back to Previous Menu");
@@ -164,10 +164,10 @@ public class SalesSub {
     
             // Update inventory
             if (saleQuantity == currentQuantity) {
-                // If all items are sold, delete the inventory record
+                // If all items are sold, update inventory to sold
                 updateInventoryStmt.setInt(1, inventoryId);
                 updateInventoryStmt.execute();
-                System.out.println("All items sold. Inventory record deleted.");
+                System.out.println("All items sold. Inventory updated to sold with quantity set to 0.");
             } else {
                 // Otherwise, decrement the quantity
                 try (CallableStatement decrementInventoryStmt = conn.prepareCall("{CALL DecrementInventory(?, ?)}")) {
@@ -185,31 +185,84 @@ public class SalesSub {
         }
     }    
 
-
     private static void updateSale(Scanner scanner) {
+        System.out.println("Note: Sale quantity cannot be changed.");
         System.out.print("Enter Sale ID to update: ");
         int saleID = scanner.nextInt();
+        scanner.nextLine(); // Consume leftover newline
     
-        System.out.print("Enter new quantity: ");
-        int newQuantity = scanner.nextInt();
+        System.out.print("Do you want to update the Customer ID? (yes/no): ");
+        String updateCustomerId = scanner.nextLine().trim().toLowerCase();
+        Integer customerId = null;
+        if (updateCustomerId.equals("yes")) {
+            System.out.print("Enter new Customer ID: ");
+            while (!scanner.hasNextInt()) {
+                System.out.println("Invalid input. Please enter a valid Customer ID.");
+                scanner.next(); // Consume invalid input
+            }
+            customerId = scanner.nextInt();
+            scanner.nextLine(); // Consume leftover newline
+        }
+    
+        System.out.print("Do you want to update the Sale Date? (yes/no): ");
+        String updateDate = scanner.nextLine().trim().toLowerCase();
+        String saleDate = null;
+        if (updateDate.equals("yes")) {
+            System.out.print("Enter new Sale Date (YYYY-MM-DD): ");
+            saleDate = scanner.nextLine().trim();
+        }
+    
+        System.out.print("Do you want to update the Sale Price? (yes/no): ");
+        String updatePrice = scanner.nextLine().trim().toLowerCase();
+        Double salePrice = null;
+        if (updatePrice.equals("yes")) {
+            System.out.print("Enter new Sale Price: ");
+            while (!scanner.hasNextDouble()) {
+                System.out.println("Invalid input. Please enter a valid price.");
+                scanner.next(); // Consume invalid input
+            }
+            salePrice = scanner.nextDouble();
+            scanner.nextLine(); // Consume leftover newline
+        }
+    
+        // Check if any updates are requested
+        if (customerId == null && saleDate == null && salePrice == null) {
+            System.out.println("No updates were made. Exiting.");
+            return;
+        }
     
         try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall("{CALL UpdateSale(?, ?)}")) {
+             CallableStatement stmt = conn.prepareCall("{CALL UpdateSale(?, ?, ?, ?)}")) {
     
             // Set the parameters for the stored procedure
             stmt.setInt(1, saleID);
-            stmt.setInt(2, newQuantity);
+    
+            if (customerId != null) {
+                stmt.setInt(2, customerId);
+            } else {
+                stmt.setNull(2, java.sql.Types.INTEGER);
+            }
+    
+            if (saleDate != null) {
+                stmt.setString(3, saleDate);
+            } else {
+                stmt.setNull(3, java.sql.Types.DATE);
+            }
+    
+            if (salePrice != null) {
+                stmt.setDouble(4, salePrice);
+            } else {
+                stmt.setNull(4, java.sql.Types.DOUBLE);
+            }
     
             // Execute the stored procedure
             stmt.execute();
-    
-            // Retrieve and print any messages from the stored procedure
-            System.out.println("Sale and inventory update operation completed. Check logs or database for details.");
+            System.out.println("Sale updated successfully!");
     
         } catch (SQLException e) {
             System.out.println("Error updating sale: " + e.getMessage());
         }
-    }
+    }    
 
     private static void deleteSale(Scanner scanner) {
         System.out.println("Deleting a sale isn't recommended. This won't return any products to the inventory.");

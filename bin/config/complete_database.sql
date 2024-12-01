@@ -264,84 +264,29 @@ GO
 
 CREATE PROCEDURE UpdateSale
     @SaleID INT,
-    @NewQuantity INT
+    @CustomerID INT = NULL,
+    @SaleDate DATE = NULL,
+    @SalePrice NUMERIC(10, 2) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    DECLARE @CurrentQuantity INT;
-    DECLARE @InventoryID INT;
-    DECLARE @InventoryQuantity INT;
-    DECLARE @QuantityChange INT;
-
-    -- Retrieve the current sale and inventory details
-    SELECT @CurrentQuantity = sale_quantity, @InventoryID = inventory_id
-    FROM Sales
-    WHERE sale_id = @SaleID;
-
-    IF @CurrentQuantity IS NULL
+    -- Check if the sale exists
+    IF NOT EXISTS (SELECT 1 FROM Sales WHERE sale_id = @SaleID)
     BEGIN
-        PRINT 'Sale ID not found.';
+        RAISERROR ('Error: Sale ID not found.', 16, 1);
         RETURN;
     END
 
-    SELECT @InventoryQuantity = quantity
-    FROM Inventory
-    WHERE inventory_id = @InventoryID;
-
-    IF @InventoryQuantity IS NULL
-    BEGIN
-        PRINT 'Inventory ID not found.';
-        RETURN;
-    END
-
-    -- Calculate the quantity change
-    SET @QuantityChange = @NewQuantity - @CurrentQuantity;
-
-    -- Handle deletion if new quantity is zero
-    IF @NewQuantity = 0
-    BEGIN
-        DELETE FROM Sales WHERE sale_id = @SaleID;
-
-        -- Increment inventory by the entire sale quantity
-        UPDATE Inventory
-        SET quantity = quantity + @CurrentQuantity
-        WHERE inventory_id = @InventoryID;
-
-        PRINT 'Sale deleted and inventory updated successfully.';
-        RETURN;
-    END
-
-    -- Handle increase in sale quantity
-    IF @QuantityChange > 0
-    BEGIN
-        IF @InventoryQuantity < @QuantityChange
-        BEGIN
-            PRINT 'Error: Not enough stock in inventory to increase the sale quantity.';
-            RETURN;
-        END
-
-        -- Decrease inventory
-        UPDATE Inventory
-        SET quantity = quantity - @QuantityChange
-        WHERE inventory_id = @InventoryID;
-    END
-
-    -- Handle decrease in sale quantity
-    IF @QuantityChange < 0
-    BEGIN
-        -- Increase inventory
-        UPDATE Inventory
-        SET quantity = quantity + ABS(@QuantityChange)
-        WHERE inventory_id = @InventoryID;
-    END
-
-    -- Update the sale quantity
+    -- Update only the specified columns
     UPDATE Sales
-    SET sale_quantity = @NewQuantity
+    SET 
+        customer_id = ISNULL(@CustomerID, customer_id),
+        sale_date = ISNULL(@SaleDate, sale_date),
+        sale_price = ISNULL(@SalePrice, sale_price)
     WHERE sale_id = @SaleID;
 
-    PRINT 'Sale and inventory updated successfully.';
+    PRINT 'Sale updated successfully.';
 END;
 GO
 
@@ -435,10 +380,20 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    DELETE FROM Inventory
+    -- Check if the inventory record exists
+    IF NOT EXISTS (SELECT 1 FROM Inventory WHERE inventory_id = @InventoryID)
+    BEGIN
+        RAISERROR ('Error: Inventory ID not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Update the inventory location to 'sold' and set quantity to 0
+    UPDATE Inventory
+    SET location = 'sold',
+        quantity = 0
     WHERE inventory_id = @InventoryID;
 
-    PRINT 'Inventory record deleted successfully.';
+    PRINT 'Inventory updated to sold with quantity set to 0.';
 END;
 GO
 
@@ -513,7 +468,6 @@ GO
 CREATE PROCEDURE GetInventory AS
 BEGIN
     SET NOCOUNT ON;
-
     SELECT 
         i.inventory_id,
         i.bulk_order_id,

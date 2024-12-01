@@ -31,7 +31,7 @@ public class InventorySub {
                         moveProducts(scanner);
                         break;
                     case 3:
-                        tossExpiredProducts();
+                        tossExpiredProducts(); //needs work
                         break;
                     case 4:
                         //tossProducts();
