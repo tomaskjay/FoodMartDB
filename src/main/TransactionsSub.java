@@ -43,7 +43,7 @@ public class TransactionsSub {
                 }
             } else {
                 System.out.println("Invalid input. Please enter a number.");
-                scanner.next(); // Consume invalid input
+                scanner.next();
             }
         }
     }
@@ -54,7 +54,7 @@ public class TransactionsSub {
 
     System.out.print("Enter Returned Quantity: ");
     int returnedQuantity = scanner.nextInt();
-    scanner.nextLine(); // Consume leftover newline
+    scanner.nextLine();
 
     if (returnedQuantity < 1) {
         System.out.println("Error: Returned quantity must be at least 1.");
