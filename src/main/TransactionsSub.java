@@ -16,8 +16,8 @@ public class TransactionsSub {
             System.out.println("1. Sales");
             System.out.println("2. Orders");
             System.out.println("3. Make a Return");
-            System.out.println("4. Check Profit");
-            System.out.println("5. View Popular");
+            System.out.println("4. Check Profit"); //NOT NECESSARY
+            System.out.println("5. View Popular"); //NOT IMPLEMENTED
             System.out.println("6. Back to Main Menu");
             System.out.print("Enter your choice: ");
 
