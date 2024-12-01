@@ -16,7 +16,7 @@ public class InventorySub {
             System.out.println("1. View Inventory");
             System.out.println("2. Move Products from Storage to Shelf");
             System.out.println("3. Mark Expired Products");
-            System.out.println("4. Detect Shoplifting"); //NOT IMPLEMENTED
+            System.out.println("4. Detect Shoplifting");
             System.out.println("5. Back to Main Menu");
             System.out.print("Enter your choice: ");
 

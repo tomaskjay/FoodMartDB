@@ -108,65 +108,6 @@ CREATE INDEX idx_sales_sale_date ON Sales(sale_date);
 
 --STORED PROCEDURES--
 
--- to create a new contact
-CREATE PROCEDURE AddContact
-    @Email NVARCHAR(100),
-    @Phone NVARCHAR(15),
-    @Street NVARCHAR(100),
-    @City NVARCHAR(50),
-    @State CHAR(2),
-    @ZipCode NVARCHAR(10),
-    @ContactID INT OUTPUT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Insert the contact information into the Contact table
-    INSERT INTO Contact (email, phone, street, city, state, zip_code)
-    VALUES (@Email, @Phone, @Street, @City, @State, @ZipCode);
-
-    -- Retrieve the newly inserted contact_id
-    SET @ContactID = SCOPE_IDENTITY();
-
-    PRINT 'Contact added successfully.';
-END;
-GO
-
---to update a contact
-CREATE PROCEDURE UpdateContact
-    @ContactID INT,
-    @Email NVARCHAR(100),
-    @Phone NVARCHAR(15),
-    @Street NVARCHAR(100),
-    @City NVARCHAR(50),
-    @State CHAR(2),
-    @ZipCode NVARCHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Check if the contact exists
-    IF NOT EXISTS (SELECT 1 FROM Contact WHERE contact_id = @ContactID)
-    BEGIN
-        RAISERROR ('Error: Contact ID not found.', 16, 1);
-        RETURN;
-    END
-
-    -- Update the contact details
-    UPDATE Contact
-    SET 
-        email = @Email,
-        phone = @Phone,
-        street = @Street,
-        city = @City,
-        state = @State,
-        zip_code = @ZipCode
-    WHERE contact_id = @ContactID;
-
-    PRINT 'Contact updated successfully.';
-END;
-GO
-
 -- Create Stored Procedure to Get All Products
 CREATE PROCEDURE GetAllProducts
 AS
@@ -1129,6 +1070,66 @@ BEGIN
     ORDER BY total_sold DESC, total_revenue DESC;
 
     PRINT 'Popular products fetched successfully.';
+END;
+GO
+
+
+-- to create a new contact
+CREATE PROCEDURE AddContact
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(15),
+    @Street NVARCHAR(100),
+    @City NVARCHAR(50),
+    @State CHAR(2),
+    @ZipCode NVARCHAR(10),
+    @ContactID INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Insert the contact information into the Contact table
+    INSERT INTO Contact (email, phone, street, city, state, zip_code)
+    VALUES (@Email, @Phone, @Street, @City, @State, @ZipCode);
+
+    -- Retrieve the newly inserted contact_id
+    SET @ContactID = SCOPE_IDENTITY();
+
+    PRINT 'Contact added successfully.';
+END;
+GO
+
+--to update a contact
+CREATE PROCEDURE UpdateContact
+    @ContactID INT,
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(15),
+    @Street NVARCHAR(100),
+    @City NVARCHAR(50),
+    @State CHAR(2),
+    @ZipCode NVARCHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if the contact exists
+    IF NOT EXISTS (SELECT 1 FROM Contact WHERE contact_id = @ContactID)
+    BEGIN
+        RAISERROR ('Error: Contact ID not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Update the contact details
+    UPDATE Contact
+    SET 
+        email = @Email,
+        phone = @Phone,
+        street = @Street,
+        city = @City,
+        state = @State,
+        zip_code = @ZipCode
+    WHERE contact_id = @ContactID;
+
+    PRINT 'Contact updated successfully.';
 END;
 GO
 
