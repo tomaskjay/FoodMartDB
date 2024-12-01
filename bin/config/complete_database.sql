@@ -939,3 +939,129 @@ BEGIN
     WHERE employee_id = @EmployeeID;
 END;
 GO
+
+--for returns
+
+CREATE PROCEDURE MakeReturn
+    @SaleID INT,
+    @ReturnedQuantity INT,
+    @ReturnDate DATE,
+    @Reason NVARCHAR(100) = 'No reason provided'
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @SaleQuantity INT;
+    DECLARE @TotalReturnedQuantity INT;
+    DECLARE @InventoryID INT;
+    DECLARE @CurrentLocation NVARCHAR(20);
+
+    -- Validate the sale ID and fetch related data
+    SELECT 
+        @SaleQuantity = sale_quantity,
+        @TotalReturnedQuantity = total_returned_quantity,
+        @InventoryID = inventory_id
+    FROM Sales
+    WHERE sale_id = @SaleID;
+
+    IF @SaleQuantity IS NULL
+    BEGIN
+        RAISERROR ('Error: Sale ID not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Validate the returned quantity
+    IF @ReturnedQuantity < 1
+    BEGIN
+        RAISERROR ('Error: Returned quantity must be at least 1.', 16, 1);
+        RETURN;
+    END
+
+    IF (@TotalReturnedQuantity + @ReturnedQuantity) > @SaleQuantity
+    BEGIN
+        RAISERROR ('Error: Returned quantity exceeds the sale quantity.', 16, 1);
+        RETURN;
+    END
+
+    -- Insert into Returns table
+    INSERT INTO Returns (sale_id, returned_quantity, return_date, reason)
+    VALUES (@SaleID, @ReturnedQuantity, @ReturnDate, @Reason);
+
+    -- Update the Sales table to increment total returned quantity
+    UPDATE Sales
+    SET total_returned_quantity = total_returned_quantity + @ReturnedQuantity
+    WHERE sale_id = @SaleID;
+
+    -- If the inventory ID exists, update the inventory
+    IF @InventoryID IS NOT NULL
+    BEGIN
+        -- Fetch the current location of the inventory
+        SELECT @CurrentLocation = location
+        FROM Inventory
+        WHERE inventory_id = @InventoryID;
+
+        -- If the current location is 'sold', change it back to 'shelf'
+        IF @CurrentLocation = 'sold'
+        BEGIN
+            UPDATE Inventory
+            SET location = 'shelf',
+                quantity = @ReturnedQuantity -- Reset quantity to the returned amount
+            WHERE inventory_id = @InventoryID;
+        END
+        ELSE
+        BEGIN
+            -- Increment the quantity in the inventory
+            UPDATE Inventory
+            SET quantity = quantity + @ReturnedQuantity
+            WHERE inventory_id = @InventoryID;
+        END
+    END
+
+    PRINT 'Return processed successfully.';
+END;
+GO
+
+--for finding expired products
+CREATE PROCEDURE MarkExpiredProducts
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Temporary table to store expired products for output
+    CREATE TABLE #ExpiredProducts (
+        inventory_id INT,
+        bulk_order_id INT,
+        product_name NVARCHAR(100),
+        location NVARCHAR(20),
+        quantity INT,
+        bulk_order_date DATE
+    );
+
+    -- Identify and mark expired products
+    INSERT INTO #ExpiredProducts (inventory_id, bulk_order_id, product_name, location, quantity, bulk_order_date)
+    SELECT 
+        i.inventory_id,
+        i.bulk_order_id,
+        p.name AS product_name,
+        i.location,
+        i.quantity,
+        b.order_date
+    FROM Inventory i
+    INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+    INNER JOIN Products p ON b.product_id = p.product_id
+    WHERE i.location IN ('shelf', 'storage') -- Only consider shelf or storage
+      AND DATEDIFF(DAY, b.order_date, GETDATE()) > p.shelf_life; -- Expired based on shelf life
+
+    -- Update the location of expired products
+    UPDATE Inventory
+    SET location = 'expired'
+    WHERE inventory_id IN (SELECT inventory_id FROM #ExpiredProducts);
+
+    -- Output the expired products
+    SELECT * FROM #ExpiredProducts;
+
+    DROP TABLE #ExpiredProducts;
+
+    PRINT 'Expired products have been marked successfully.';
+END;
+GO

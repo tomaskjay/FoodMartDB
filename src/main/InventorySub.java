@@ -15,7 +15,7 @@ public class InventorySub {
             System.out.println("\n=== Manage Inventory ===");
             System.out.println("1. View Inventory");
             System.out.println("2. Move Products from Storage to Shelf");
-            System.out.println("3. Find Expired Products");
+            System.out.println("3. Mark Expired Products");
             System.out.println("4. Remove Inventory Products");
             System.out.println("5. Check Shoplifting");
             System.out.println("6. Back to Main Menu");
@@ -31,7 +31,7 @@ public class InventorySub {
                         moveProducts(scanner);
                         break;
                     case 3:
-                        tossExpiredProducts(); //needs work
+                        markExpiredProducts();
                         break;
                     case 4:
                         //tossProducts();
@@ -91,22 +91,20 @@ public class InventorySub {
         }
     }    
     
-    private static void tossExpiredProducts() {
+    private static void markExpiredProducts() {
         try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall(
-                 "{CALL TossExpiredProducts}",
-                 ResultSet.TYPE_SCROLL_INSENSITIVE,
+             CallableStatement stmt = conn.prepareCall("{CALL MarkExpiredProducts}", 
+                 ResultSet.TYPE_SCROLL_INSENSITIVE, 
                  ResultSet.CONCUR_READ_ONLY)) {
     
-            // Execute the stored procedure
             ResultSet rs = stmt.executeQuery();
-    
-            // Display the results
-            System.out.println("\n=== Expired Products ===");
+            System.out.println("\n=== Expired Products Marked ===");
             DatabaseHelper.printResultSet(rs);
     
+            System.out.println("Expired products have been marked as 'expired' in the inventory.");
+    
         } catch (SQLException e) {
-            System.out.println("Error listing expired products: " + e.getMessage());
+            System.out.println("Error marking expired products: " + e.getMessage());
         }
     }    
     
