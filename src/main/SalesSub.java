@@ -126,64 +126,87 @@ public class SalesSub {
         System.out.print("Enter Total Sale Price: ");
         double salePrice = scanner.nextDouble();
     
-        try (Connection conn = SQLConnection.getConnection();
-             CallableStatement getInventoryStmt = conn.prepareCall("{CALL GetInventoryById(?)}");
-             CallableStatement updateInventoryStmt = conn.prepareCall("{CALL UpdateInventory(?)}");
-             CallableStatement addSaleStmt = conn.prepareCall("{CALL RecordSale(?, ?, ?, ?, ?)}")) {
+        Connection conn = null;
+        try {
+            conn = SQLConnection.getConnection();
+            conn.setAutoCommit(false); // Start transaction
     
-            // Validate inventory ID and ensure it's from the shelf
-            getInventoryStmt.setInt(1, inventoryId);
-            ResultSet rs = getInventoryStmt.executeQuery();
+            try (
+                CallableStatement getInventoryStmt = conn.prepareCall("{CALL GetInventoryById(?)}");
+                CallableStatement updateInventoryStmt = conn.prepareCall("{CALL UpdateInventory(?)}");
+                CallableStatement addSaleStmt = conn.prepareCall("{CALL RecordSale(?, ?, ?, ?, ?)}")
+            ) {
+                // Validate inventory ID and ensure it's from the shelf
+                getInventoryStmt.setInt(1, inventoryId);
+                ResultSet rs = getInventoryStmt.executeQuery();
     
-            if (!rs.next()) {
-                System.out.println("Error: Inventory ID not found.");
-                return;
-            }
-    
-            String location = rs.getString("location");
-            int currentQuantity = rs.getInt("quantity");
-    
-            if (!location.equalsIgnoreCase("shelf")) {
-                System.out.println("Error: Only items from the shelf can be sold.");
-                return;
-            }
-    
-            if (saleQuantity > currentQuantity) {
-                System.out.println("Error: Insufficient quantity on the shelf.");
-                return;
-            }
-    
-            // Record the sale
-            addSaleStmt.setInt(1, inventoryId);
-            addSaleStmt.setInt(2, customerId);
-            addSaleStmt.setInt(3, saleQuantity);
-            addSaleStmt.setString(4, saleDate);
-            addSaleStmt.setDouble(5, salePrice);
-    
-            addSaleStmt.execute();
-    
-            // Update inventory
-            if (saleQuantity == currentQuantity) {
-                // If all items are sold, update inventory to sold
-                updateInventoryStmt.setInt(1, inventoryId);
-                updateInventoryStmt.execute();
-                System.out.println("All items sold. Inventory updated to sold with quantity set to 0.");
-            } else {
-                // Otherwise, decrement the quantity
-                try (CallableStatement decrementInventoryStmt = conn.prepareCall("{CALL DecrementInventory(?, ?)}")) {
-                    decrementInventoryStmt.setInt(1, inventoryId);
-                    decrementInventoryStmt.setInt(2, saleQuantity);
-                    decrementInventoryStmt.execute();
-                    System.out.println("Inventory updated. Remaining quantity: " + (currentQuantity - saleQuantity));
+                if (!rs.next()) {
+                    System.out.println("Error: Inventory ID not found.");
+                    conn.rollback(); // Rollback transaction
+                    return;
                 }
-            }
     
-            System.out.println("Sale recorded successfully!");
+                String location = rs.getString("location");
+                int currentQuantity = rs.getInt("quantity");
+    
+                if (!location.equalsIgnoreCase("shelf")) {
+                    System.out.println("Error: Only items from the shelf can be sold.");
+                    conn.rollback(); // Rollback transaction
+                    return;
+                }
+    
+                if (saleQuantity > currentQuantity) {
+                    System.out.println("Error: Insufficient quantity on the shelf.");
+                    conn.rollback(); // Rollback transaction
+                    return;
+                }
+    
+                // Record the sale
+                addSaleStmt.setInt(1, inventoryId);
+                addSaleStmt.setInt(2, customerId);
+                addSaleStmt.setInt(3, saleQuantity);
+                addSaleStmt.setString(4, saleDate);
+                addSaleStmt.setDouble(5, salePrice);
+    
+                addSaleStmt.execute();
+    
+                // Update inventory
+                if (saleQuantity == currentQuantity) {
+                    // If all items are sold, update inventory to sold
+                    updateInventoryStmt.setInt(1, inventoryId);
+                    updateInventoryStmt.execute();
+                    System.out.println("All items sold. Inventory updated to sold with quantity set to 0.");
+                } else {
+                    // Otherwise, decrement the quantity
+                    try (CallableStatement decrementInventoryStmt = conn.prepareCall("{CALL DecrementInventory(?, ?)}")) {
+                        decrementInventoryStmt.setInt(1, inventoryId);
+                        decrementInventoryStmt.setInt(2, saleQuantity);
+                        decrementInventoryStmt.execute();
+                        System.out.println("Inventory updated. Remaining quantity: " + (currentQuantity - saleQuantity));
+                    }
+                }
+    
+                conn.commit(); // Commit transaction
+                System.out.println("Sale recorded successfully!");
+    
+            } catch (SQLException e) {
+                conn.rollback(); // Rollback transaction
+                System.out.println("Error during transaction: " + e.getMessage());
+            }
     
         } catch (SQLException e) {
             System.out.println("Error recording sale: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true); // Restore auto-commit
+                    conn.close();
+                } catch (SQLException e) {
+                    System.out.println("Error closing connection: " + e.getMessage());
+                }
+            }
         }
-    }    
+    }        
 
     private static void updateSale(Scanner scanner) {
         System.out.println("Note: Sale quantity cannot be changed.");

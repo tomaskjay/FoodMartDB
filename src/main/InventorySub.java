@@ -49,19 +49,28 @@ public class InventorySub {
     }
 
     private static void viewInventory() {
-        try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall("{CALL GetInventory}", 
-                 ResultSet.TYPE_SCROLL_INSENSITIVE, 
-                 ResultSet.CONCUR_READ_ONLY)) {
-
-            ResultSet rs = stmt.executeQuery();
-            System.out.println("\n=== Inventory List ===");
-            DatabaseHelper.printResultSet(rs);
-
+        try (Connection conn = SQLConnection.getConnection()) {
+            conn.setAutoCommit(false); // Start transaction
+    
+            try (CallableStatement stmt = conn.prepareCall("{CALL GetInventory}", 
+                    ResultSet.TYPE_SCROLL_INSENSITIVE, 
+                    ResultSet.CONCUR_READ_ONLY)) {
+    
+                ResultSet rs = stmt.executeQuery();
+                System.out.println("\n=== Inventory List ===");
+                DatabaseHelper.printResultSet(rs);
+    
+                conn.commit(); // Commit transaction
+            } catch (SQLException e) {
+                conn.rollback(); // Rollback transaction on error
+                System.out.println("Error fetching inventory: " + e.getMessage());
+            } finally {
+                conn.setAutoCommit(true); // Reset auto-commit to default
+            }
         } catch (SQLException e) {
-            System.out.println("Error fetching inventory: " + e.getMessage());
+            System.out.println("Database connection error: " + e.getMessage());
         }
-    }
+    }    
 
     private static void moveProducts(Scanner scanner) {
         System.out.print("Enter Inventory ID to move: ");
@@ -70,69 +79,95 @@ public class InventorySub {
         System.out.print("Enter Quantity to move to shelf: ");
         int quantityToMove = scanner.nextInt();
     
-        try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall("{CALL MoveProductToShelf(?, ?)}")) {
+        try (Connection conn = SQLConnection.getConnection()) {
+            conn.setAutoCommit(false); // Start transaction
     
-            // Set parameters for the stored procedure
-            stmt.setInt(1, inventoryID);
-            stmt.setInt(2, quantityToMove);
+            try (CallableStatement stmt = conn.prepareCall("{CALL MoveProductToShelf(?, ?)}")) {
+                // Set parameters for the stored procedure
+                stmt.setInt(1, inventoryID);
+                stmt.setInt(2, quantityToMove);
     
-            // Execute the stored procedure
-            stmt.execute();
+                // Execute the stored procedure
+                stmt.execute();
     
-            System.out.println("Product move operation completed successfully.");
-    
+                conn.commit(); // Commit transaction
+                System.out.println("Product move operation completed successfully.");
+            } catch (SQLException e) {
+                conn.rollback(); // Rollback transaction on error
+                System.out.println("Error moving products: " + e.getMessage());
+            } finally {
+                conn.setAutoCommit(true); // Reset auto-commit to default
+            }
         } catch (SQLException e) {
-            System.out.println("Error moving products: " + e.getMessage());
+            System.out.println("Database connection error: " + e.getMessage());
         }
-    }    
+    }
     
     private static void markExpiredProducts() {
-        try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall("{CALL MarkExpiredProducts}", 
-                 ResultSet.TYPE_SCROLL_INSENSITIVE, 
-                 ResultSet.CONCUR_READ_ONLY)) {
+        try (Connection conn = SQLConnection.getConnection()) {
+            conn.setAutoCommit(false); // Start transaction
     
-            ResultSet rs = stmt.executeQuery();
-            System.out.println("\n=== Expired Products Marked ===");
-            DatabaseHelper.printResultSet(rs);
+            try (CallableStatement stmt = conn.prepareCall("{CALL MarkExpiredProducts}", 
+                    ResultSet.TYPE_SCROLL_INSENSITIVE, 
+                    ResultSet.CONCUR_READ_ONLY)) {
     
-            System.out.println("Expired products have been marked as 'expired' in the inventory.");
+                ResultSet rs = stmt.executeQuery();
+                System.out.println("\n=== Expired Products Marked ===");
+                DatabaseHelper.printResultSet(rs);
     
+                conn.commit(); // Commit transaction
+                System.out.println("Expired products have been marked as 'expired' in the inventory.");
+    
+            } catch (SQLException e) {
+                conn.rollback(); // Rollback transaction on error
+                System.out.println("Error marking expired products: " + e.getMessage());
+            } finally {
+                conn.setAutoCommit(true); // Reset auto-commit to default
+            }
         } catch (SQLException e) {
-            System.out.println("Error marking expired products: " + e.getMessage());
+            System.out.println("Database connection error: " + e.getMessage());
         }
-    }    
+    }
 
     private static void detectShoplifting() {
-        try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall("{CALL DetectShoplifting}", 
-                 ResultSet.TYPE_SCROLL_INSENSITIVE, 
-                 ResultSet.CONCUR_READ_ONLY)) {
+        try (Connection conn = SQLConnection.getConnection()) {
+            conn.setAutoCommit(false); // Start transaction
     
-            ResultSet rs = stmt.executeQuery();
-            System.out.println("\n=== Potential Shoplifting Detected ===");
-            System.out.printf("%-20s %-15s %-15s %-15s %-15s\n", 
-                "Product Name", "Total Ordered", "Total Sold", "Total Inventory", "Discrepancy");
+            try (CallableStatement stmt = conn.prepareCall("{CALL DetectShoplifting}", 
+                    ResultSet.TYPE_SCROLL_INSENSITIVE, 
+                    ResultSet.CONCUR_READ_ONLY)) {
     
-            boolean foundDiscrepancies = false;
+                ResultSet rs = stmt.executeQuery();
+                System.out.println("\n=== Potential Shoplifting Detected ===");
+                System.out.printf("%-20s %-15s %-15s %-15s %-15s\n", 
+                    "Product Name", "Total Ordered", "Total Sold", "Total Inventory", "Discrepancy");
     
-            while (rs.next()) {
-                foundDiscrepancies = true;
-                System.out.printf("%-20s %-15d %-15d %-15d %-15d\n",
-                    rs.getString("product_name"),
-                    rs.getInt("total_ordered"),
-                    rs.getInt("total_sold"),
-                    rs.getInt("total_inventory"),
-                    rs.getInt("discrepancy"));
+                boolean foundDiscrepancies = false;
+    
+                while (rs.next()) {
+                    foundDiscrepancies = true;
+                    System.out.printf("%-20s %-15d %-15d %-15d %-15d\n",
+                        rs.getString("product_name"),
+                        rs.getInt("total_ordered"),
+                        rs.getInt("total_sold"),
+                        rs.getInt("total_inventory"),
+                        rs.getInt("discrepancy"));
+                }
+    
+                if (!foundDiscrepancies) {
+                    System.out.println("No discrepancies found. All products accounted for.");
+                }
+    
+                conn.commit(); // Commit transaction
+                System.out.println("Transaction committed successfully.");
+            } catch (SQLException e) {
+                conn.rollback(); // Rollback transaction on error
+                System.out.println("Error detecting shoplifting, rolling back transaction: " + e.getMessage());
+            } finally {
+                conn.setAutoCommit(true); // Reset auto-commit to default
             }
-    
-            if (!foundDiscrepancies) {
-                System.out.println("No discrepancies found. All products accounted for.");
-            }
-    
         } catch (SQLException e) {
-            System.out.println("Error detecting shoplifting: " + e.getMessage());
+            System.out.println("Database connection error: " + e.getMessage());
         }
     }    
 }

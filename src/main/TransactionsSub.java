@@ -49,63 +49,91 @@ public class TransactionsSub {
     }
 
     private static void manageReturns(Scanner scanner) {
-    System.out.print("Enter Sale ID: ");
-    int saleID = scanner.nextInt();
-
-    System.out.print("Enter Returned Quantity: ");
-    int returnedQuantity = scanner.nextInt();
-    scanner.nextLine();
-
-    if (returnedQuantity < 1) {
-        System.out.println("Error: Returned quantity must be at least 1.");
-        return;
-    }
-
-    System.out.print("Enter Return Date (YYYY-MM-DD): ");
-    String returnDate = scanner.nextLine();
-
-    System.out.print("Enter Reason (optional): ");
-    String reason = scanner.nextLine();
-    if (reason.isEmpty()) {
-        reason = "No reason provided";
-    }
-
-    try (Connection conn = SQLConnection.getConnection();
-         CallableStatement getSaleStmt = conn.prepareCall("{CALL GetSaleById(?)}");
-         CallableStatement makeReturnStmt = conn.prepareCall("{CALL MakeReturn(?, ?, ?, ?)}")) {
-
-        // Fetch sale to validate it exists and show details
-        getSaleStmt.setInt(1, saleID);
-        ResultSet rs = getSaleStmt.executeQuery();
-
-        if (!rs.next()) {
-            System.out.println("Error: Sale ID not found.");
+        System.out.print("Enter Sale ID: ");
+        int saleID = scanner.nextInt();
+    
+        System.out.print("Enter Returned Quantity: ");
+        int returnedQuantity = scanner.nextInt();
+        scanner.nextLine();
+    
+        if (returnedQuantity < 1) {
+            System.out.println("Error: Returned quantity must be at least 1.");
             return;
         }
-
-        // Display the sale details
-        System.out.println("\n=== Sale Details ===");
-        System.out.printf("Sale ID: %d\n", rs.getInt("sale_id"));
-        System.out.printf("Inventory ID: %s\n", rs.getString("inventory_id"));
-        System.out.printf("Customer ID: %d\n", rs.getInt("customer_id"));
-        System.out.printf("Sale Quantity: %d\n", rs.getInt("sale_quantity"));
-        System.out.printf("Sale Date: %s\n", rs.getString("sale_date"));
-        System.out.printf("Sale Price: %.2f\n", rs.getDouble("sale_price"));
-        System.out.printf("Total Returned Quantity: %d\n", rs.getInt("total_returned_quantity"));
-
-        // Execute the MakeReturn procedure
-        makeReturnStmt.setInt(1, saleID);
-        makeReturnStmt.setInt(2, returnedQuantity);
-        makeReturnStmt.setString(3, returnDate);
-        makeReturnStmt.setString(4, reason);
-        makeReturnStmt.execute();
-
-        System.out.println("Return processed successfully!");
-
-    } catch (SQLException e) {
-        System.out.println("Error processing return: " + e.getMessage());
+    
+        System.out.print("Enter Return Date (YYYY-MM-DD): ");
+        String returnDate = scanner.nextLine();
+    
+        System.out.print("Enter Reason (optional): ");
+        String reason = scanner.nextLine();
+        if (reason.isEmpty()) {
+            reason = "No reason provided";
         }
-    }   
+    
+        Connection conn = null;
+    
+        try {
+            conn = SQLConnection.getConnection();
+            conn.setAutoCommit(false); // Start transaction
+    
+            try (
+                CallableStatement getSaleStmt = conn.prepareCall("{CALL GetSaleById(?)}");
+                CallableStatement makeReturnStmt = conn.prepareCall("{CALL MakeReturn(?, ?, ?, ?)}")
+            ) {
+                // Fetch sale to validate it exists and show details
+                getSaleStmt.setInt(1, saleID);
+                ResultSet rs = getSaleStmt.executeQuery();
+    
+                if (!rs.next()) {
+                    System.out.println("Error: Sale ID not found.");
+                    conn.rollback(); // Rollback transaction
+                    return;
+                }
+    
+                // Display the sale details
+                System.out.println("\n=== Sale Details ===");
+                System.out.printf("Sale ID: %d\n", rs.getInt("sale_id"));
+                System.out.printf("Inventory ID: %s\n", rs.getString("inventory_id"));
+                System.out.printf("Customer ID: %d\n", rs.getInt("customer_id"));
+                System.out.printf("Sale Quantity: %d\n", rs.getInt("sale_quantity"));
+                System.out.printf("Sale Date: %s\n", rs.getString("sale_date"));
+                System.out.printf("Sale Price: %.2f\n", rs.getDouble("sale_price"));
+                System.out.printf("Total Returned Quantity: %d\n", rs.getInt("total_returned_quantity"));
+    
+                // Execute the MakeReturn procedure
+                makeReturnStmt.setInt(1, saleID);
+                makeReturnStmt.setInt(2, returnedQuantity);
+                makeReturnStmt.setString(3, returnDate);
+                makeReturnStmt.setString(4, reason);
+                makeReturnStmt.execute();
+    
+                // Commit transaction
+                conn.commit();
+                System.out.println("Return processed successfully!");
+            }
+    
+        } catch (SQLException e) {
+            if (conn != null) {
+                try {
+                    conn.rollback(); // Rollback transaction on error
+                    System.out.println("Transaction rolled back due to error.");
+                } catch (SQLException rollbackEx) {
+                    System.out.println("Error during rollback: " + rollbackEx.getMessage());
+                }
+            }
+            System.out.println("Error processing return: " + e.getMessage());
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true); // Restore default behavior
+                    conn.close(); // Close the connection
+                } catch (SQLException closeEx) {
+                    System.out.println("Error closing connection: " + closeEx.getMessage());
+                }
+            }
+        }
+    }
+    
 
     private static void viewPopularProducts() {
         try (Connection conn = SQLConnection.getConnection();

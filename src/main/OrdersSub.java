@@ -123,22 +123,30 @@ public class OrdersSub {
         double orderPrice = scanner.nextDouble();
         scanner.nextLine(); // Consume leftover newline
     
-        try (Connection conn = SQLConnection.getConnection();
-             CallableStatement stmt = conn.prepareCall("{CALL MakeOrder(?, ?, ?, ?, ?)}")) {
+        try (Connection conn = SQLConnection.getConnection()) {
+            conn.setAutoCommit(false); // Start transaction
     
-            // Set parameters for the stored procedure
-            stmt.setInt(1, productID);
-            stmt.setInt(2, supplierID);
-            stmt.setInt(3, totalQuantity);
-            stmt.setString(4, orderDate);
-            stmt.setDouble(5, orderPrice);
+            try (CallableStatement stmt = conn.prepareCall("{CALL MakeOrder(?, ?, ?, ?, ?)}")) {
+                // Set parameters for the stored procedure
+                stmt.setInt(1, productID);
+                stmt.setInt(2, supplierID);
+                stmt.setInt(3, totalQuantity);
+                stmt.setString(4, orderDate);
+                stmt.setDouble(5, orderPrice);
     
-            // Execute the stored procedure
-            stmt.executeUpdate();
-            System.out.println("Order successfully created and added to inventory!");
+                // Execute the stored procedure
+                stmt.executeUpdate();
     
+                conn.commit(); // Commit transaction
+                System.out.println("Order successfully created and added to inventory!");
+            } catch (SQLException e) {
+                conn.rollback(); // Rollback transaction on error
+                System.out.println("Error creating order: " + e.getMessage());
+            } finally {
+                conn.setAutoCommit(true); // Reset auto-commit to default
+            }
         } catch (SQLException e) {
-            System.out.println("Error creating order: " + e.getMessage());
+            System.out.println("Database connection error: " + e.getMessage());
         }
     }    
 

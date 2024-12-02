@@ -1,5 +1,5 @@
 --CREATE STATEMENTS--
-
+/*
 CREATE TABLE Sections (
     section_id INT PRIMARY KEY IDENTITY(1,1),
     name VARCHAR(50) NOT NULL
@@ -104,9 +104,70 @@ CREATE INDEX idx_inventory_quantity ON Inventory(quantity);
 CREATE INDEX idx_sales_sale_quantity ON Sales(sale_quantity);
 CREATE INDEX idx_sales_sale_price ON Sales(sale_price);
 CREATE INDEX idx_sales_sale_date ON Sales(sale_date);
-
+*/
 
 --STORED PROCEDURES--
+
+--for contacts (used in other procedures so put here first)
+
+-- to create a new contact
+CREATE PROCEDURE AddContact
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(15),
+    @Street NVARCHAR(100),
+    @City NVARCHAR(50),
+    @State CHAR(2),
+    @ZipCode NVARCHAR(10),
+    @ContactID INT OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Insert the contact information into the Contact table
+    INSERT INTO Contact (email, phone, street, city, state, zip_code)
+    VALUES (@Email, @Phone, @Street, @City, @State, @ZipCode);
+
+    -- Retrieve the newly inserted contact_id
+    SET @ContactID = SCOPE_IDENTITY();
+
+    PRINT 'Contact added successfully.';
+END;
+GO
+
+--to update a contact
+CREATE PROCEDURE UpdateContact
+    @ContactID INT,
+    @Email NVARCHAR(100),
+    @Phone NVARCHAR(15),
+    @Street NVARCHAR(100),
+    @City NVARCHAR(50),
+    @State CHAR(2),
+    @ZipCode NVARCHAR(10)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Check if the contact exists
+    IF NOT EXISTS (SELECT 1 FROM Contact WHERE contact_id = @ContactID)
+    BEGIN
+        RAISERROR ('Error: Contact ID not found.', 16, 1);
+        RETURN;
+    END
+
+    -- Update the contact details
+    UPDATE Contact
+    SET 
+        email = @Email,
+        phone = @Phone,
+        street = @Street,
+        city = @City,
+        state = @State,
+        zip_code = @ZipCode
+    WHERE contact_id = @ContactID;
+
+    PRINT 'Contact updated successfully.';
+END;
+GO
 
 -- Create Stored Procedure to Get All Products
 CREATE PROCEDURE GetAllProducts
@@ -181,75 +242,41 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Insert into BulkOrders with the new attribute `order_price`
-    INSERT INTO BulkOrders (product_id, supplier_id, total_quantity, order_date, order_price)
-    VALUES (@ProductID, @SupplierID, @TotalQuantity, @OrderDate, @OrderPrice);
+    BEGIN TRY
+        -- Start a transaction
+        BEGIN TRANSACTION;
 
-    -- Get the BulkOrderID of the newly inserted order
-    DECLARE @BulkOrderID INT = SCOPE_IDENTITY();
+        -- Insert into BulkOrders with the new attribute `order_price`
+        INSERT INTO BulkOrders (product_id, supplier_id, total_quantity, order_date, order_price)
+        VALUES (@ProductID, @SupplierID, @TotalQuantity, @OrderDate, @OrderPrice);
 
-    -- Insert into Inventory with location as 'storage'
-    INSERT INTO Inventory (bulk_order_id, location, quantity)
-    VALUES (@BulkOrderID, 'storage', @TotalQuantity);
+        -- Get the BulkOrderID of the newly inserted order
+        DECLARE @BulkOrderID INT = SCOPE_IDENTITY();
 
-    PRINT 'Order and associated inventory created successfully.';
-END;
-GO
+        -- Insert into Inventory with location as 'storage'
+        INSERT INTO Inventory (bulk_order_id, location, quantity)
+        VALUES (@BulkOrderID, 'storage', @TotalQuantity);
 
---for sales
+        -- If everything succeeds, commit the transaction
+        COMMIT TRANSACTION;
 
-CREATE PROCEDURE GetAllSales AS BEGIN
-    SELECT * FROM Sales;
-END;
-GO
+        PRINT 'Order and associated inventory created successfully.';
+    END TRY
+    BEGIN CATCH
+        -- Rollback the transaction on error
+        IF @@TRANCOUNT > 0
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END
 
-CREATE PROCEDURE UpdateSale
-    @SaleID INT,
-    @CustomerID INT = NULL,
-    @SaleDate DATE = NULL,
-    @SalePrice NUMERIC(10, 2) = NULL
-AS
-BEGIN
-    SET NOCOUNT ON;
+        -- Retrieve error details
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
 
-    -- Check if the sale exists
-    IF NOT EXISTS (SELECT 1 FROM Sales WHERE sale_id = @SaleID)
-    BEGIN
-        RAISERROR ('Error: Sale ID not found.', 16, 1);
-        RETURN;
-    END
-
-    -- Update only the specified columns
-    UPDATE Sales
-    SET 
-        customer_id = ISNULL(@CustomerID, customer_id),
-        sale_date = ISNULL(@SaleDate, sale_date),
-        sale_price = ISNULL(@SalePrice, sale_price)
-    WHERE sale_id = @SaleID;
-
-    PRINT 'Sale updated successfully.';
-END;
-GO
-
-CREATE PROCEDURE DeleteSale
-    @SaleID INT
-AS BEGIN
-    DELETE FROM Sales WHERE sale_id = @SaleID;
-END;
-GO
-
-CREATE PROCEDURE GetCustomerById
-    @CustomerID INT
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    SELECT 
-        customer_id,
-        fname,
-        lname
-    FROM Customer
-    WHERE customer_id = @CustomerID;
+        -- Raise the error to the calling application
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH
 END;
 GO
 
@@ -281,7 +308,7 @@ BEGIN
 END;
 GO
 
-CREATE PROCEDURE RecordSale
+ALTER PROCEDURE RecordSale
     @InventoryID INT,
     @CustomerID INT,
     @SaleQuantity INT,
@@ -290,11 +317,25 @@ CREATE PROCEDURE RecordSale
 AS
 BEGIN
     SET NOCOUNT ON;
+    BEGIN TRANSACTION;
 
-    INSERT INTO Sales (inventory_id, customer_id, sale_quantity, sale_date, sale_price)
-    VALUES (@InventoryID, @CustomerID, @SaleQuantity, @SaleDate, @SalePrice);
+    BEGIN TRY
+        -- Insert the sale record
+        INSERT INTO Sales (inventory_id, customer_id, sale_quantity, sale_date, sale_price)
+        VALUES (@InventoryID, @CustomerID, @SaleQuantity, @SaleDate, @SalePrice);
 
-    PRINT 'Sale recorded successfully.';
+        PRINT 'Sale recorded successfully.';
+
+        -- Commit the transaction if everything succeeds
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- Rollback the transaction in case of error
+        ROLLBACK TRANSACTION;
+
+        -- Re-throw the error
+        THROW;
+    END CATCH;
 END;
 GO
 
@@ -346,7 +387,6 @@ CREATE PROCEDURE GetAllOrders AS BEGIN
 END;
 GO
 
---CHHHHHHHHHHHHHHHHHHHHHHAAAAAAAAAAAAAAAAAANNNNNNNNNNNNNNGGGGGGGGGGGGGGGEEEEEEEEEEEEEEEEE
 
 CREATE PROCEDURE UpdateOrder
     @OrderID INT,
@@ -408,18 +448,37 @@ GO
 --viewing all inventory
 CREATE PROCEDURE GetInventory AS
 BEGIN
-    SET NOCOUNT ON;
-    SELECT 
-        i.inventory_id,
-        i.bulk_order_id,
-        p.name AS product_name,
-        i.location,
-        i.quantity
-    FROM Inventory i
-    INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
-    INNER JOIN Products p ON b.product_id = p.product_id
-    WHERE i.location IN ('storage', 'shelf') -- Only include storage and shelf locations
-    ORDER BY i.location, p.name;
+    BEGIN TRY
+        -- Start a transaction
+        BEGIN TRANSACTION;
+
+        SET NOCOUNT ON;
+
+        -- Fetch inventory details
+        SELECT 
+            i.inventory_id,
+            i.bulk_order_id,
+            p.name AS product_name,
+            i.location,
+            i.quantity
+        FROM Inventory i
+        INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+        INNER JOIN Products p ON b.product_id = p.product_id
+        WHERE i.location IN ('storage', 'shelf') -- Only include storage and shelf locations
+        ORDER BY i.location, p.name;
+
+        -- Commit the transaction if successful
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- Rollback the transaction in case of an error
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        -- Raise an error with a meaningful message
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR (@ErrorMessage, 16, 1);
+    END CATCH
 END;
 GO
 
@@ -431,145 +490,131 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Variables for inventory tracking
-    DECLARE @StorageQuantity INT;
-    DECLARE @BulkOrderID INT;
-    DECLARE @ShelfInventoryID INT;
-    DECLARE @ShelfQuantity INT;
+    BEGIN TRANSACTION;
 
-    -- Fetch storage details for the given inventory ID
-    SELECT 
-        @StorageQuantity = quantity, 
-        @BulkOrderID = bulk_order_id
-    FROM Inventory
-    WHERE inventory_id = @InventoryID AND location = 'storage';
+    BEGIN TRY
+        -- Variables for inventory tracking
+        DECLARE @StorageQuantity INT;
+        DECLARE @BulkOrderID INT;
+        DECLARE @ShelfInventoryID INT;
+        DECLARE @ShelfQuantity INT;
 
-    -- Check if the record exists in storage
-    IF @StorageQuantity IS NULL
-    BEGIN
-        RAISERROR ('No products found in storage for the given inventory ID.', 16, 1);
-        RETURN;
-    END
+        -- Fetch storage details for the given inventory ID
+        SELECT 
+            @StorageQuantity = quantity, 
+            @BulkOrderID = bulk_order_id
+        FROM Inventory
+        WHERE inventory_id = @InventoryID AND location = 'storage';
 
-    -- Check if the quantity to move exceeds storage quantity
-    IF @StorageQuantity < @QuantityToMove
-    BEGIN
-        RAISERROR ('Not enough quantity in storage to move.', 16, 1);
-        RETURN;
-    END
+        -- Check if the record exists in storage
+        IF @StorageQuantity IS NULL
+        BEGIN
+            RAISERROR ('No products found in storage for the given inventory ID.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
 
-    -- Check if a record for the bulk order already exists on the shelf
-    SELECT 
-        @ShelfInventoryID = inventory_id, 
-        @ShelfQuantity = quantity
-    FROM Inventory
-    WHERE bulk_order_id = @BulkOrderID AND location = 'shelf';
+        -- Check if the quantity to move exceeds storage quantity
+        IF @StorageQuantity < @QuantityToMove
+        BEGIN
+            RAISERROR ('Not enough quantity in storage to move.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
 
-    -- If the inventory ID is already on the shelf
-    IF @InventoryID = @ShelfInventoryID
-    BEGIN
-        RAISERROR ('The specified inventory ID is already on the shelf.', 16, 1);
-        RETURN;
-    END
+        -- Check if a record for the bulk order already exists on the shelf
+        SELECT 
+            @ShelfInventoryID = inventory_id, 
+            @ShelfQuantity = quantity
+        FROM Inventory
+        WHERE bulk_order_id = @BulkOrderID AND location = 'shelf';
 
-    -- Handle full quantity move
-    IF @QuantityToMove = @StorageQuantity
-    BEGIN
+        -- If the inventory ID is already on the shelf
+        IF @InventoryID = @ShelfInventoryID
+        BEGIN
+            RAISERROR ('The specified inventory ID is already on the shelf.', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+
+        -- Handle full quantity move
+        IF @QuantityToMove = @StorageQuantity
+        BEGIN
+            IF @ShelfInventoryID IS NOT NULL
+            BEGIN
+                -- Combine with existing shelf record and delete the storage record
+                UPDATE Inventory
+                SET quantity = quantity + @StorageQuantity
+                WHERE inventory_id = @ShelfInventoryID;
+
+                DELETE FROM Inventory
+                WHERE inventory_id = @InventoryID;
+
+                PRINT 'All products moved to shelf and combined with existing inventory.';
+            END
+            ELSE
+            BEGIN
+                -- Change location of storage record to shelf
+                UPDATE Inventory
+                SET location = 'shelf'
+                WHERE inventory_id = @InventoryID;
+
+                PRINT 'All products moved to shelf successfully.';
+            END
+
+            COMMIT TRANSACTION;
+            RETURN;
+        END
+
+        -- Handle partial quantity move
         IF @ShelfInventoryID IS NOT NULL
         BEGIN
-            -- Combine with existing shelf record and delete the storage record
+            -- Combine with existing shelf record
             UPDATE Inventory
-            SET quantity = quantity + @StorageQuantity
+            SET quantity = quantity + @QuantityToMove
             WHERE inventory_id = @ShelfInventoryID;
 
-            DELETE FROM Inventory
+            -- Decrement storage quantity
+            UPDATE Inventory
+            SET quantity = quantity - @QuantityToMove
             WHERE inventory_id = @InventoryID;
 
-            PRINT 'All products moved to shelf and combined with existing inventory.';
+            PRINT 'Products moved and combined with existing shelf inventory.';
         END
         ELSE
         BEGIN
-            -- Change location of storage record to shelf
+            -- Create a new shelf record for the partial quantity
+            INSERT INTO Inventory (bulk_order_id, location, quantity)
+            VALUES (@BulkOrderID, 'shelf', @QuantityToMove);
+
+            -- Decrement storage quantity
             UPDATE Inventory
-            SET location = 'shelf'
+            SET quantity = quantity - @QuantityToMove
             WHERE inventory_id = @InventoryID;
 
-            PRINT 'All products moved to shelf successfully.';
+            PRINT 'Products moved and new shelf inventory created.';
         END
-        RETURN;
-    END
 
-    -- Handle partial quantity move
-    IF @ShelfInventoryID IS NOT NULL
-    BEGIN
-        -- Combine with existing shelf record
-        UPDATE Inventory
-        SET quantity = quantity + @QuantityToMove
-        WHERE inventory_id = @ShelfInventoryID;
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- Rollback on error
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
 
-        -- Decrement storage quantity
-        UPDATE Inventory
-        SET quantity = quantity - @QuantityToMove
-        WHERE inventory_id = @InventoryID;
+        -- Declare and retrieve error details
+        DECLARE @ErrorMessage NVARCHAR(4000);
+        DECLARE @ErrorSeverity INT;
+        DECLARE @ErrorState INT;
 
-        PRINT 'Products moved and combined with existing shelf inventory.';
-    END
-    ELSE
-    BEGIN
-        -- Create a new shelf record for the partial quantity
-        INSERT INTO Inventory (bulk_order_id, location, quantity)
-        VALUES (@BulkOrderID, 'shelf', @QuantityToMove);
+        SELECT 
+            @ErrorMessage = ERROR_MESSAGE(),
+            @ErrorSeverity = ERROR_SEVERITY(),
+            @ErrorState = ERROR_STATE();
 
-        -- Decrement storage quantity
-        UPDATE Inventory
-        SET quantity = quantity - @QuantityToMove
-        WHERE inventory_id = @InventoryID;
-
-        PRINT 'Products moved and new shelf inventory created.';
-    END
-END;
-GO
-
---listing and removing expired products
-
-CREATE PROCEDURE TossExpiredProducts AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Temporary table to store expired products for listing
-    CREATE TABLE #ExpiredProducts (
-        inventory_id INT,
-        product_name NVARCHAR(100),
-        location NVARCHAR(20),
-        quantity INT,
-        bulk_order_date DATE
-    );
-
-    -- Insert expired products into the temporary table
-    INSERT INTO #ExpiredProducts (inventory_id, product_name, location, quantity, bulk_order_date)
-    SELECT 
-        i.inventory_id,
-        p.name AS product_name,
-        i.location,
-        i.quantity,
-        b.order_date AS bulk_order_date
-    FROM Inventory i
-    INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
-    INNER JOIN Products p ON b.product_id = p.product_id
-    WHERE i.location = 'shelf' 
-      AND DATEDIFF(DAY, b.order_date, GETDATE()) > p.shelf_life;
-
-    -- Select the expired products for listing
-    SELECT * FROM #ExpiredProducts;
-
-    -- Delete the expired products from the inventory
-    DELETE FROM Inventory
-    WHERE inventory_id IN (SELECT inventory_id FROM #ExpiredProducts);
-
-    PRINT 'Expired products have been listed and removed from inventory.';
-
-    -- Drop the temporary table
-    DROP TABLE #ExpiredProducts;
+        -- Raise the captured error
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH
 END;
 GO
 
@@ -882,6 +927,31 @@ END;
 GO
 
 --for returns
+CREATE PROCEDURE GetSaleById
+    @SaleID INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Retrieve the sale details by SaleID
+    SELECT 
+        sale_id,
+        inventory_id,
+        customer_id,
+        sale_quantity,
+        sale_date,
+        sale_price,
+        total_returned_quantity
+    FROM Sales
+    WHERE sale_id = @SaleID;
+
+    -- Check if the SaleID exists
+    IF NOT EXISTS (SELECT 1 FROM Sales WHERE sale_id = @SaleID)
+    BEGIN
+        THROW 50000, 'Error: Sale ID not found.', 1;
+    END;
+END;
+GO
 
 CREATE PROCEDURE MakeReturn
     @SaleID INT,
@@ -968,42 +1038,61 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Temporary table to store expired products for output
-    CREATE TABLE #ExpiredProducts (
-        inventory_id INT,
-        bulk_order_id INT,
-        product_name NVARCHAR(100),
-        location NVARCHAR(20),
-        quantity INT,
-        bulk_order_date DATE
-    );
+    -- Begin transaction
+    BEGIN TRANSACTION;
 
-    -- Identify and mark expired products
-    INSERT INTO #ExpiredProducts (inventory_id, bulk_order_id, product_name, location, quantity, bulk_order_date)
-    SELECT 
-        i.inventory_id,
-        i.bulk_order_id,
-        p.name AS product_name,
-        i.location,
-        i.quantity,
-        b.order_date
-    FROM Inventory i
-    INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
-    INNER JOIN Products p ON b.product_id = p.product_id
-    WHERE i.location IN ('shelf', 'storage') -- Only consider shelf or storage
-      AND DATEDIFF(DAY, b.order_date, GETDATE()) > p.shelf_life; -- Expired based on shelf life
+    BEGIN TRY
+        -- Temporary table to store expired products for output
+        CREATE TABLE #ExpiredProducts (
+            inventory_id INT,
+            bulk_order_id INT,
+            product_name NVARCHAR(100),
+            location NVARCHAR(20),
+            quantity INT,
+            bulk_order_date DATE
+        );
 
-    -- Update the location of expired products
-    UPDATE Inventory
-    SET location = 'expired'
-    WHERE inventory_id IN (SELECT inventory_id FROM #ExpiredProducts);
+        -- Identify and mark expired products
+        INSERT INTO #ExpiredProducts (inventory_id, bulk_order_id, product_name, location, quantity, bulk_order_date)
+        SELECT 
+            i.inventory_id,
+            i.bulk_order_id,
+            p.name AS product_name,
+            i.location,
+            i.quantity,
+            b.order_date
+        FROM Inventory i
+        INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+        INNER JOIN Products p ON b.product_id = p.product_id
+        WHERE i.location IN ('shelf', 'storage') -- Only consider shelf or storage
+          AND DATEDIFF(DAY, b.order_date, GETDATE()) > p.shelf_life; -- Expired based on shelf life
 
-    -- Output the expired products
-    SELECT * FROM #ExpiredProducts;
+        -- Update the location of expired products
+        UPDATE Inventory
+        SET location = 'expired'
+        WHERE inventory_id IN (SELECT inventory_id FROM #ExpiredProducts);
 
-    DROP TABLE #ExpiredProducts;
+        -- Output the expired products
+        SELECT * FROM #ExpiredProducts;
 
-    PRINT 'Expired products have been marked successfully.';
+        -- Drop the temporary table
+        DROP TABLE #ExpiredProducts;
+
+        -- Commit transaction
+        COMMIT TRANSACTION;
+
+        PRINT 'Expired products have been marked successfully.';
+    END TRY
+    BEGIN CATCH
+        -- Rollback transaction in case of an error
+        IF @@TRANCOUNT > 0
+        BEGIN
+            ROLLBACK TRANSACTION;
+        END;
+
+        -- Re-throw the error to the caller
+        THROW;
+    END CATCH;
 END;
 GO
 
@@ -1012,46 +1101,68 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Identify discrepancies in product quantities
-    SELECT 
-        p.name AS product_name,
-        bos.total_ordered AS total_ordered,
-        COALESCE(ss.total_sold, 0) AS total_sold,
-        COALESCE(isum.total_inventory, 0) AS total_inventory,
-        bos.total_ordered - (COALESCE(ss.total_sold, 0) + COALESCE(isum.total_inventory, 0)) AS discrepancy
-    FROM (
-        -- Total quantity ordered
-        SELECT 
-            b.product_id,
-            SUM(b.total_quantity) AS total_ordered
-        FROM BulkOrders b
-        GROUP BY b.product_id
-    ) bos
-    LEFT JOIN (
-        -- Total quantity sold
-        SELECT 
-            b.product_id,
-            SUM(s.sale_quantity) AS total_sold
-        FROM Sales s
-        INNER JOIN Inventory i ON s.inventory_id = i.inventory_id
-        INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
-        GROUP BY b.product_id
-    ) ss ON bos.product_id = ss.product_id
-    LEFT JOIN (
-        -- Total quantity remaining in inventory
-        SELECT 
-            b.product_id,
-            SUM(i.quantity) AS total_inventory
-        FROM Inventory i
-        INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
-        GROUP BY b.product_id
-    ) isum ON bos.product_id = isum.product_id
-    INNER JOIN Products p ON bos.product_id = p.product_id
-    WHERE bos.total_ordered <> (COALESCE(ss.total_sold, 0) + COALESCE(isum.total_inventory, 0));
+    BEGIN TRY
+        -- Begin a transaction
+        BEGIN TRANSACTION;
 
-    PRINT 'Shoplifting detection completed.';
+        -- Identify discrepancies in product quantities
+        SELECT 
+            p.name AS product_name,
+            bos.total_ordered AS total_ordered,
+            COALESCE(ss.total_sold, 0) AS total_sold,
+            COALESCE(isum.total_inventory, 0) AS total_inventory,
+            bos.total_ordered - (COALESCE(ss.total_sold, 0) + COALESCE(isum.total_inventory, 0)) AS discrepancy
+        FROM (
+            -- Total quantity ordered
+            SELECT 
+                b.product_id,
+                SUM(b.total_quantity) AS total_ordered
+            FROM BulkOrders b
+            GROUP BY b.product_id
+        ) bos
+        LEFT JOIN (
+            -- Total quantity sold
+            SELECT 
+                b.product_id,
+                SUM(s.sale_quantity) AS total_sold
+            FROM Sales s
+            INNER JOIN Inventory i ON s.inventory_id = i.inventory_id
+            INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+            GROUP BY b.product_id
+        ) ss ON bos.product_id = ss.product_id
+        LEFT JOIN (
+            -- Total quantity remaining in inventory
+            SELECT 
+                b.product_id,
+                SUM(i.quantity) AS total_inventory
+            FROM Inventory i
+            INNER JOIN BulkOrders b ON i.bulk_order_id = b.bulk_order_id
+            GROUP BY b.product_id
+        ) isum ON bos.product_id = isum.product_id
+        INNER JOIN Products p ON bos.product_id = p.product_id
+        WHERE bos.total_ordered <> (COALESCE(ss.total_sold, 0) + COALESCE(isum.total_inventory, 0));
+
+        -- Print message upon successful execution
+        PRINT 'Shoplifting detection completed.';
+
+        -- Commit the transaction
+        COMMIT TRANSACTION;
+    END TRY
+    BEGIN CATCH
+        -- Rollback transaction in case of error
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        -- Raise an error message
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+
+        RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState);
+    END CATCH
 END;
 GO
+
 
 CREATE PROCEDURE GetPopularProducts
 AS
@@ -1073,63 +1184,27 @@ BEGIN
 END;
 GO
 
+-- TRIGGERS
 
--- to create a new contact
-CREATE PROCEDURE AddContact
-    @Email NVARCHAR(100),
-    @Phone NVARCHAR(15),
-    @Street NVARCHAR(100),
-    @City NVARCHAR(50),
-    @State CHAR(2),
-    @ZipCode NVARCHAR(10),
-    @ContactID INT OUTPUT
+-- make that that tuples in sales have locatino of either shelf or sold
+CREATE TRIGGER trg_CheckInventoryLocationForSales
+ON Sales
+FOR INSERT, UPDATE
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Insert the contact information into the Contact table
-    INSERT INTO Contact (email, phone, street, city, state, zip_code)
-    VALUES (@Email, @Phone, @Street, @City, @State, @ZipCode);
-
-    -- Retrieve the newly inserted contact_id
-    SET @ContactID = SCOPE_IDENTITY();
-
-    PRINT 'Contact added successfully.';
-END;
-GO
-
---to update a contact
-CREATE PROCEDURE UpdateContact
-    @ContactID INT,
-    @Email NVARCHAR(100),
-    @Phone NVARCHAR(15),
-    @Street NVARCHAR(100),
-    @City NVARCHAR(50),
-    @State CHAR(2),
-    @ZipCode NVARCHAR(10)
-AS
-BEGIN
-    SET NOCOUNT ON;
-
-    -- Check if the contact exists
-    IF NOT EXISTS (SELECT 1 FROM Contact WHERE contact_id = @ContactID)
+    -- Check that all referenced inventory_id values have a valid location ('shelf' or 'sold')
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+        JOIN Inventory inv ON i.inventory_id = inv.inventory_id
+        WHERE inv.location NOT IN ('shelf', 'sold')
+    )
     BEGIN
-        RAISERROR ('Error: Contact ID not found.', 16, 1);
+        RAISERROR ('Error: Inventory location must be either ''shelf'' or ''sold''.', 16, 1);
+        ROLLBACK TRANSACTION;
         RETURN;
     END
-
-    -- Update the contact details
-    UPDATE Contact
-    SET 
-        email = @Email,
-        phone = @Phone,
-        street = @Street,
-        city = @City,
-        state = @State,
-        zip_code = @ZipCode
-    WHERE contact_id = @ContactID;
-
-    PRINT 'Contact updated successfully.';
 END;
 GO
-
