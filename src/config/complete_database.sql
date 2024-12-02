@@ -1,5 +1,4 @@
 --CREATE STATEMENTS--
-/*
 CREATE TABLE Sections (
     section_id INT PRIMARY KEY IDENTITY(1,1),
     name VARCHAR(50) NOT NULL
@@ -104,7 +103,6 @@ CREATE INDEX idx_inventory_quantity ON Inventory(quantity);
 CREATE INDEX idx_sales_sale_quantity ON Sales(sale_quantity);
 CREATE INDEX idx_sales_sale_price ON Sales(sale_price);
 CREATE INDEX idx_sales_sale_date ON Sales(sale_date);
-*/
 
 --STORED PROCEDURES--
 
